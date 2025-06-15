@@ -79,7 +79,7 @@ INSTALLED_APPS = [
     "apps.tables",
     "apps.charts",
     "apps.maps",
-    "apps.transactions",
+    # "apps.transactions",
     "auth.apps.AuthConfig"
 ]
 ASGI_APPLICATION = "config.asgi.application"

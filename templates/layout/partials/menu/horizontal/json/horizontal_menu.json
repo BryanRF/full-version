@@ -405,15 +405,9 @@
           "role": "admin",
           "submenu": [
             {
-              "url": "app-access-roles",
+              "url": "role-permissions",
               "name": "Roles",
-              "slug": "app-access-roles",
-              "icon": "menu-icon tf-icons ri-circle-line px-1_5"
-            },
-            {
-              "url": "app-access-permission",
-              "name": "Permission",
-              "slug": "app-access-permission",
+              "slug": "role-permissions",
               "icon": "menu-icon tf-icons ri-circle-line px-1_5"
             }
           ]
@@ -430,12 +424,7 @@
     {
       "name": "Pages",
       "icon": "menu-icon tf-icons ri-article-line",
-      "slug": [
-        "pages",
-        "auth",
-        "wizard-ex",
-        "modal"
-      ],
+      "slug": ["pages", "auth", "wizard-ex", "modal"],
       "submenu": [
         {
           "name": "Front Pages",
@@ -777,12 +766,7 @@
     {
       "name": "Components",
       "icon": "menu-icon tf-icons ri-archive-line",
-      "slug": [
-        "cards",
-        "ui",
-        "extended",
-        "icons"
-      ],
+      "slug": ["cards", "ui", "extended", "icons"],
       "submenu": [
         {
           "name": "Cards",
@@ -1051,12 +1035,7 @@
     {
       "name": "Forms",
       "icon": "menu-icon tf-icons ri-pages-line",
-      "slug": [
-        "forms",
-        "form-layouts",
-        "form-wizard",
-        "form"
-      ],
+      "slug": ["forms", "form-layouts", "form-wizard", "form"],
       "submenu": [
         {
           "name": "Form Elements",
@@ -1180,10 +1159,7 @@
     {
       "name": "Tables",
       "icon": "menu-icon tf-icons ri-table-line",
-      "slug": [
-        "tables",
-        "tables-datatables"
-      ],
+      "slug": ["tables", "tables-datatables"],
       "submenu": [
         {
           "url": "tables-basic",
@@ -1221,10 +1197,7 @@
     {
       "name": "Charts & Maps",
       "icon": "menu-icon tf-icons ri-computer-line",
-      "slug": [
-        "charts",
-        "maps"
-      ],
+      "slug": ["charts", "maps"],
       "submenu": [
         {
           "name": "Charts",

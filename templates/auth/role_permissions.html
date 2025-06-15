@@ -24,42 +24,7 @@
 {% block page_css %}
 {{ block.super }}
 <style>
-.role-card {
-    transition: all 0.3s ease;
-    border: 2px solid #e7eaf3;
-    cursor: pointer;
-}
-.role-card:hover {
-    border-color: #007bff;
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
-    transform: translateY(-2px);
-}
-.role-card.active {
-    border-color: #007bff;
-    background-color: #e3f2fd;
-    color: #1565c0;
-}
-.permission-module {
-    border-radius: 10px;
-    transition: all 0.3s ease;
-}
-.permission-module:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-.permission-item {
-    padding: 8px 12px;
-    border-radius: 6px;
-    margin: 2px 0;
-    transition: background-color 0.2s ease;
-}
-.permission-item:hover {
-    background-color: #f8f9fa;
-}
-.stats-card {
-    background-color: #007bff;
-    color: white;
-    border-radius: 15px;
-}
+
 </style>
 {% endblock page_css %}
 
@@ -77,11 +42,11 @@
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-8">
-                            <h3 class=" mb-1">
+                            <h3 class="  mb-1">
                                 <i class="ri-shield-user-line me-2"></i>
                                 Gestión de Permisos por Roles
                             </h3>
-                            <p class=" mb-0" style="opacity: 0.8;">
+                            <p class="  mb-0" style="opacity: 0.8;">
                                 Configura permisos a nivel de rol para una gestión centralizada y eficiente
                             </p>
                         </div>

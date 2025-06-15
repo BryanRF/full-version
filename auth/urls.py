@@ -7,6 +7,18 @@ from .reset_password.views import ResetPasswordView
 from .verify_email.views import  VerifyEmailTokenView , VerifyEmailView, SendVerificationView
 from rest_framework.routers import DefaultRouter
 from .views import UserViewSet, ActiveUserListAPIView, UserListCreateAPIView
+
+from .permissions.views import (
+    RolePermissionsView,
+    RolePermissionsAPIView,
+    UpdateRolePermissionsAPIView,
+    UsersByRoleAPIView,
+    RoleStatsAPIView,
+    SyncUserRolesAPIView
+)
+
+
+
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 urlpatterns = [
@@ -59,5 +71,40 @@ urlpatterns = [
         ResetPasswordView.as_view(template_name="auth/reset_password.html"),
         name="reset-password",
     ),
+
+
+
+    # URLs para gestión de permisos por roles (sistema simplificado)
+    path(
+        "auth/role-permissions/",
+        RolePermissionsView.as_view(),
+        name="role-permissions",
+    ),
+    path(
+        "auth/role-permissions/<str:role>/",
+        RolePermissionsAPIView.as_view(),
+        name="role-permissions-detail",
+    ),
+    path(
+        "auth/role-permissions/update/",
+        UpdateRolePermissionsAPIView.as_view(),
+        name="update-role-permissions",
+    ),
+    path(
+        "auth/role-permissions/users/<str:role>/",
+        UsersByRoleAPIView.as_view(),
+        name="users-by-role",
+    ),
+    path(
+        "auth/role-permissions/stats/",
+        RoleStatsAPIView.as_view(),
+        name="role-stats",
+    ),
+    path(
+        "auth/role-permissions/sync/",
+        SyncUserRolesAPIView.as_view(),
+        name="sync-user-roles",
+    ),
+
 
 ]+ router.urls

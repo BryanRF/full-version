@@ -110,7 +110,7 @@ urlpatterns = [
     path("", include("auth.urls")),
 
     # transaction urls
-    path("", include("apps.transactions.urls")),
+    # path("", include("apps.transactions.urls")),
     path("", include("apps.notification.urls")),
 
 ]
