@@ -1,0 +1,183 @@
+{
+  "menu": [
+    {
+      "menu_header": "Modulos"
+    },
+    {
+      "name": "Almacen",
+      "icon": "menu-icon tf-icons ri-shopping-bag-3-line",
+      "slug": "app-ecommerce",
+      "submenu": [
+        {
+          "url": "app-ecommerce-dashboard",
+          "name": "Dashboard",
+          "slug": "app-ecommerce-dashboard"
+        },
+        {
+          "name": "Productos",
+          "slug": "app-ecommerce-product",
+          "submenu": [
+            {
+              "url": "app-ecommerce-product-list",
+              "name": "Lista Productos",
+              "slug": "app-ecommerce-product-list"
+            },
+            {
+              "url": "app-ecommerce-product-add",
+              "name": "Agregar Productos",
+              "slug": "app-ecommerce-product-add"
+            },
+            {
+              "url": "app-ecommerce-product-category-list",
+              "name": "Lista Categorias",
+              "slug": "app-ecommerce-product-category-list"
+            }
+          ]
+        },
+        {
+          "name": "Proveedores",
+          "slug": "app-ecommerce-customer",
+          "submenu": [
+            {
+              "url": "app-ecommerce-customer-all",
+              "name": "Lista Proveedores",
+              "slug": "app-ecommerce-customer-all"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gestion Compras",
+      "icon": "menu-icon tf-icons ri-bill-line",
+      "slug": "app-ecommerce-customer",
+      "submenu": [
+        {
+          "name": "Requerimientos",
+          "slug": "app-ecommerce-customer",
+          "submenu": [
+            {
+              "url": "app-requirements-list",
+              "name": "Listado Requerimientos",
+              "slug": "app-requirements-list"
+            },
+            {
+              "url": "app-requirements-add",
+              "name": "Agregar Requerimiento",
+              "slug": "app-requirements-add"
+            }
+          ]
+        },
+        {
+          "name": "Cotizaciones",
+          "slug": "app-ecommerce-customer",
+          "submenu": [
+            {
+              "url": "app-cotizacion-list",
+              "name": "Listado Cotizaciones",
+              "slug": "app-cotizacion-list"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ventas",
+      "icon": "menu-icon tf-icons ri-shopping-cart-line",
+      "permission": "user.view_user",
+      "slug": "app-sales",
+      "submenu": [
+        {
+          "url": "app-sales-pos",
+          "name": "Punto de venta",
+          "slug": "app-sales-pos"
+        },
+        {
+          "url": "app-sales-list",
+          "name": "Lista de venta",
+          "slug": "app-sales-list"
+        }
+      ]
+    },
+    {
+      "name": "Clientes",
+      "icon": "menu-icon tf-icons ri-user-3-line",
+      "permission": "user.view_user",
+      "slug": "app-customers-list",
+      "submenu": [
+        {
+          "url": "app-customers-list",
+          "name": "Lista Clientes",
+          "slug": "app-customers-list"
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "icon": "menu-icon tf-icons ri-user-line",
+      "permission": "user.view_user",
+      "slug": "app-user",
+      "submenu": [
+        {
+          "url": "app-user-list",
+          "name": "Lista",
+          "slug": "app-user-list"
+        },
+        {
+          "url": "notifications-list-page",
+          "name": "Notificaciones",
+          "slug": "notifications-list-page"
+        },
+        {
+          "name": "Vistas",
+          "slug": "app-user-view",
+          "submenu": [
+            {
+              "url": "app-user-view-account",
+              "name": "Account",
+              "slug": "app-user-view-account"
+            },
+            {
+              "url": "app-user-view-security",
+              "name": "Security",
+              "slug": "app-user-view-security"
+            },
+            {
+              "url": "app-user-view-billing",
+              "name": "Billing & Plans",
+              "slug": "app-user-view-billing"
+            },
+            {
+              "url": "app-user-view-notifications",
+              "name": "Notifications",
+              "slug": "app-user-view-notifications"
+            },
+            {
+              "url": "app-user-view-connections",
+              "name": "Connections",
+              "slug": "app-user-view-connections"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Roles & Permisos",
+      "icon": "menu-icon tf-icons ri-lock-2-line",
+      "permission": "permission.view_permission",
+      "slug": "app-access",
+      "submenu": [
+        {
+          "url": "app-access-roles",
+          "name": "Roles",
+          "slug": "app-access-roles"
+        },
+        {
+          "url": "app-access-permission",
+          "name": "Permisos",
+          "slug": "app-access-permission"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,252 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Gestión de Cotizaciones{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+<script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/cotizacion-list.js' %}"></script>
+<script src="{% static 'js/cotizacion-actions.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Cotizaciones Analytics Widget -->
+<div class="card mb-6">
+  <div class="card-widget-separator-wrapper">
+    <div class="card-body card-widget-separator">
+      <div class="row gy-4 gy-sm-1" id="cotizacionStats">
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Total Envíos</p>
+              <h4 class="mb-1" id="totalEnvios">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="enviosActivos">0 activos</span>
+                <span class="badge rounded-pill bg-label-info">📤</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                📤
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none me-6">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Pendientes</p>
+              <h4 class="mb-1" id="pendientesEnvios">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="pendientesPercentage">0%</span>
+                <span class="badge rounded-pill bg-label-warning">⏳</span>
+              </p>
+            </div>
+            <div class="avatar me-lg-6">
+              <span class="avatar-initial rounded text-heading">
+                ⏳
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+            <div>
+              <p class="mb-1">Respondidas</p>
+              <h4 class="mb-1" id="respondidasEnvios">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="tasaRespuesta">0%</span>
+                <span class="badge rounded-pill bg-label-success">✅</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-check-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <p class="mb-1">Vencidas</p>
+              <h4 class="mb-1" id="vencidasEnvios">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="vencidasText">Sin respuesta</span>
+                <span class="badge rounded-pill bg-label-danger">⏰</span>
+              </p>
+            </div>
+            <div class="avatar">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-alarm-warning-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cotizaciones List Table -->
+<div class="card">
+  <div class="card-header">
+    <h5 class="card-title mb-4">Filtros</h5>
+    <div class="d-flex justify-content-between align-items-center row gap-5 gx-6 gap-md-0">
+      <div class="col-md-2 cotizacion_estado"></div>
+      <div class="col-md-2 cotizacion_metodo"></div>
+      <div class="col-md-3 cotizacion_proveedor"></div>
+      <div class="col-md-3 cotizacion_requerimiento"></div>
+      <div class="col-md-2 cotizacion_search">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="cotizacionSearch" placeholder="Buscar..." />
+          <label for="cotizacionSearch">Buscar</label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-datatable table-responsive">
+    <table class="datatables-cotizaciones table">
+      <thead>
+        <tr>
+          <th></th> <!-- Control responsive -->
+          <th></th> <!-- Checkboxes -->
+          <th>Número Envío</th>
+          <th>Requerimiento</th>
+          <th>Proveedor</th>
+          <th>Método Envío</th>
+          <th>Fecha Envío</th>
+          <th>Fecha Límite</th>
+          <th>Estado</th>
+          <th>Días Restantes</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+<!-- Modal para confirmar envío manual -->
+<div class="modal fade" id="confirmarEnvioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar Envío Manual</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="confirmarEnvioForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <select id="metodoEnvioManual" class="form-select" name="metodo_envio" required>
+              <option value="">Seleccionar método...</option>
+              <option value="telefono">Teléfono</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="otro">Otro</option>
+            </select>
+            <label for="metodoEnvioManual">Método de Envío</label>
+          </div>
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="notasEnvioManual" name="notas" placeholder="Detalles del envío..."></textarea>
+            <label for="notasEnvioManual">Notas del Envío</label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirmarEnvioBtn">Confirmar Envío</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para ver detalles del envío -->
+<div class="modal fade" id="detallesEnvioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detallesEnvioModalLabel">Detalles del Envío</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="detallesEnvioContent">
+          <!-- El contenido se cargará dinámicamente -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <div id="envioActions">
+          <!-- Los botones de acción se cargarán dinámicamente -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para importar respuesta -->
+<div class="modal fade" id="importarRespuestaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Importar Respuesta de Cotización</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="importarRespuestaForm" enctype="multipart/form-data">
+          <div class="mb-4">
+            <label for="archivoRespuesta" class="form-label">Archivo Excel de Respuesta</label>
+            <input class="form-control" type="file" id="archivoRespuesta" name="excel_file" accept=".xlsx,.xls" required>
+            <div class="form-text">Solo archivos Excel (.xlsx, .xls)</div>
+          </div>
+          <div class="alert alert-info">
+            <i class="ri-information-line me-2"></i>
+            <strong>Importante:</strong> El archivo debe mantener la estructura original enviada al proveedor con los precios completados.
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="importarRespuestaBtn">Importar Respuesta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Procesando...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

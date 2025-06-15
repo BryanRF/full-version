@@ -1,0 +1,534 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Detalles del Cliente{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/apex-charts/apex-charts.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<style>
+.customer-header-card {
+    color: white;
+}
+.stat-card {
+    transition: transform 0.2s;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+.contact-card {
+    border-left: 4px solid #007bff;
+}
+.contact-card.primary {
+    border-left-color: #28a745;
+    background-color: #f8f9fa;
+}
+.timeline-item {
+    position: relative;
+    padding-left: 2rem;
+    margin-bottom: 1.5rem;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.25rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: #007bff;
+}
+.timeline-item::after {
+    content: '';
+    position: absolute;
+    left: 0.375rem;
+    top: 1rem;
+    width: 2px;
+    height: calc(100% - 0.5rem);
+    background: #e9ecef;
+}
+.timeline-item:last-child::after {
+    display: none;
+}
+</style>
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/apex-charts/apexcharts.js' %}"></script>
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/customer-details.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-customer-details">
+  <!-- Header del Cliente -->
+  <div class="card customer-header-card mb-4">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <div class="d-flex align-items-center mb-3">
+            <div class="avatar avatar-xl me-3">
+              <span class="avatar-initial rounded bg-white text-primary">
+                <i class="ri-user-line ri-24px"></i>
+              </span>
+            </div>
+            <div>
+              <h4 class="mb-1" id="customerName">Cargando...</h4>
+              <p class="mb-0" id="customerDocument">-</p>
+              <div class="mt-2">
+                <span class="badge bg-white text-primary me-2" id="customerType">-</span>
+                <span class="badge bg-white text-success" id="customerStatus">-</span>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <small class="text-white-50">Email:</small>
+              <p class="mb-0" id="customerEmail">-</p>
+            </div>
+            <div class="col-md-6">
+              <small class="text-white-50">Teléfono:</small>
+              <p class="mb-0" id="customerPhone">-</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 text-end">
+          <div class="btn-group">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown">
+              <i class="ri-edit-line me-1"></i>Editar
+            </button> 
+            <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+              <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="#" onclick="CustomerDetails.updateFromAPI()">
+                <i class="ri-refresh-line me-2"></i>Actualizar desde API
+              </a></li>
+              <li><a class="dropdown-item" href="#" onclick="CustomerDetails.toggleStatus()">
+                <i class="ri-toggle-line me-2"></i>Cambiar Estado
+              </a></li>
+              <li><a class="dropdown-item" href="#" onclick="CustomerDetails.toggleFrequent()">
+                <i class="ri-star-line me-2"></i>Cliente Frecuente
+              </a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="#" onclick="CustomerDetails.deleteCustomer()">
+                <i class="ri-delete-bin-line me-2"></i>Eliminar
+              </a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estadísticas -->
+  <div class="row mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="card stat-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1">Total Ventas</p>
+              <h4 class="mb-0" id="totalSales">0</h4>
+            </div>
+            <div class="avatar">
+              <div class="avatar-initial bg-primary rounded">
+                <i class="ri-shopping-cart-line ri-24px"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="card stat-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1">Monto Total</p>
+              <h4 class="mb-0" id="totalAmount">S/.0.00</h4>
+            </div>
+            <div class="avatar">
+              <div class="avatar-initial bg-success rounded">
+                <i class="ri-money-dollar-circle-line ri-24px"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="card stat-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1">Promedio por Venta</p>
+              <h4 class="mb-0" id="avgSale">S/.0.00</h4>
+            </div>
+            <div class="avatar">
+              <div class="avatar-initial bg-info rounded">
+                <i class="ri-bar-chart-line ri-24px"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="card stat-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1">Última Venta</p>
+              <h4 class="mb-0" id="lastSaleDate">-</h4>
+            </div>
+            <div class="avatar">
+              <div class="avatar-initial bg-warning rounded">
+                <i class="ri-calendar-line ri-24px"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Información Detallada -->
+    <div class="col-xl-8">
+      <!-- Tabs -->
+      <div class="nav-align-top">
+        <ul class="nav nav-pills mb-4" role="tablist">
+          <li class="nav-item">
+            <button type="button" class="nav-link active" role="tab" data-bs-toggle="tab" data-bs-target="#sales-tab">
+              <i class="ri-shopping-cart-line me-1"></i>Ventas
+            </button>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="nav-link" role="tab" data-bs-toggle="tab" data-bs-target="#analytics-tab">
+              <i class="ri-bar-chart-line me-1"></i>Analíticas
+            </button>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="nav-link" role="tab" data-bs-toggle="tab" data-bs-target="#contacts-tab">
+              <i class="ri-contacts-line me-1"></i>Contactos
+            </button>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="nav-link" role="tab" data-bs-toggle="tab" data-bs-target="#activity-tab">
+              <i class="ri-time-line me-1"></i>Actividad
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- Tab Ventas -->
+          <div class="tab-pane fade show active" id="sales-tab">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Historial de Ventas</h5>
+                <button class="btn btn-primary btn-sm" onclick="CustomerDetails.createSale()">
+                  <i class="ri-add-line me-1"></i>Nueva Venta
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table" id="salesTable">
+                    <thead>
+                      <tr>
+                        <th>Número</th>
+                        <th>Fecha</th>
+                        <th>Total</th>
+                        <th>Método Pago</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <!-- Datos cargados dinámicamente -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab Analíticas -->
+          <div class="tab-pane fade" id="analytics-tab">
+            <div class="row">
+              <div class="col-12 mb-4">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="mb-0">Ventas por Mes</h5>
+                  </div>
+                  <div class="card-body">
+                    <div id="monthlyChart"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="mb-0">Métodos de Pago</h5>
+                  </div>
+                  <div class="card-body">
+                    <div id="paymentMethodChart"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="mb-0">Productos Favoritos</h5>
+                  </div>
+                  <div class="card-body">
+                    <div id="topProductsList">
+                      <!-- Lista dinámica -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab Contactos -->
+          <div class="tab-pane fade" id="contacts-tab">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Contactos del Cliente</h5>
+                <button class="btn btn-primary btn-sm" onclick="CustomerDetails.showAddContactModal()">
+                  <i class="ri-add-line me-1"></i>Agregar Contacto
+                </button>
+              </div>
+              <div class="card-body">
+                <div id="contactsList">
+                  <!-- Contactos cargados dinámicamente -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab Actividad -->
+          <div class="tab-pane fade" id="activity-tab">
+            <div class="card">
+              <div class="card-header">
+                <h5 class="mb-0">Actividad Reciente</h5>
+              </div>
+              <div class="card-body">
+                <div id="activityTimeline">
+                  <!-- Timeline de actividad -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar Información -->
+    <div class="col-xl-4">
+      <!-- Información Personal -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">Información Personal</h6>
+        </div>
+        <div class="card-body">
+          <dl class="row mb-0">
+            <dt class="col-sm-4">Tipo:</dt>
+            <dd class="col-sm-8" id="sidebarCustomerType">-</dd>
+            
+            <dt class="col-sm-4">Documento:</dt>
+            <dd class="col-sm-8" id="sidebarDocument">-</dd>
+            
+            <dt class="col-sm-4">Email:</dt>
+            <dd class="col-sm-8" id="sidebarEmail">-</dd>
+            
+            <dt class="col-sm-4">Teléfonos:</dt>
+            <dd class="col-sm-8" id="sidebarPhones">-</dd>
+            
+            <dt class="col-sm-4">Dirección:</dt>
+            <dd class="col-sm-8" id="sidebarAddress">-</dd>
+            
+            <dt class="col-sm-4">Distrito:</dt>
+            <dd class="col-sm-8" id="sidebarDistrict">-</dd>
+            
+            <dt class="col-sm-4">Límite Crédito:</dt>
+            <dd class="col-sm-8" id="sidebarCreditLimit">-</dd>
+            
+            <dt class="col-sm-4">Estado SUNAT:</dt>
+            <dd class="col-sm-8" id="sidebarSunatStatus">-</dd>
+            
+            <dt class="col-sm-4">Registrado:</dt>
+            <dd class="col-sm-8" id="sidebarCreatedAt">-</dd>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Acciones Rápidas -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">Acciones Rápidas</h6>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <button class="btn btn-primary" onclick="CustomerDetails.createSale()">
+              <i class="ri-shopping-cart-line me-1"></i>Nueva Venta
+            </button>
+            {% comment %} <button class="btn btn-outline-primary" onclick="CustomerDetails.sendEmail()">
+              <i class="ri-mail-line me-1"></i>Enviar Email
+            </button> {% endcomment %}
+            {% comment %} <button class="btn btn-outline-secondary" onclick="CustomerDetails.exportData()">
+              <i class="ri-download-line me-1"></i>Exportar Datos
+            </button> {% endcomment %}
+            <button class="btn btn-outline-info" onclick="CustomerDetails.viewFullHistory()">
+              <i class="ri-history-line me-1"></i>Ver Historial Completo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Cliente -->
+<div class="modal fade" id="editCustomerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editCustomerForm">
+          <div class="row">
+            <div class="col-md-6">
+              <label class="form-label">Nombres/Razón Social</label>
+              <input type="text" class="form-control" id="editFirstName" name="first_name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Apellidos</label>
+              <input type="text" class="form-control" id="editLastName" name="last_name">
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="editEmail" name="email">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="editPhone" name="phone">
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-12">
+              <label class="form-label">Dirección</label>
+              <textarea class="form-control" id="editAddress" name="address" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-md-4">
+              <label class="form-label">Distrito</label>
+              <input type="text" class="form-control" id="editDistrict" name="district">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Provincia</label>
+              <input type="text" class="form-control" id="editProvince" name="province">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Departamento</label>
+              <input type="text" class="form-control" id="editDepartment" name="department">
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-md-6">
+              <label class="form-label">Límite de Crédito</label>
+              <div class="input-group">
+                <span class="input-group-text">S/.</span>
+                <input type="number" class="form-control" id="editCreditLimit" name="credit_limit" step="0.01">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Estado</label>
+              <div class="form-check form-switch mt-2">
+                <input type="checkbox" class="form-check-input" id="editIsActive" name="is_active">
+                <label class="form-check-label" for="editIsActive">Cliente Activo</label>
+              </div>
+              <div class="form-check form-switch">
+                <input type="checkbox" class="form-check-input" id="editIsFrequent" name="is_frequent">
+                <label class="form-check-label" for="editIsFrequent">Cliente Frecuente</label>
+              </div>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Notas</label>
+            <textarea class="form-control" id="editNotes" name="notes" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="CustomerDetails.saveCustomer()">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Agregar Contacto -->
+<div class="modal fade" id="addContactModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agregar Contacto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addContactForm">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" class="form-control" id="contactName" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Cargo</label>
+            <input type="text" class="form-control" id="contactPosition" name="position">
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="contactEmail" name="email">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="contactPhone" name="phone">
+            </div>
+          </div>
+          <div class="mt-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="contactIsPrimary" name="is_primary">
+              <label class="form-check-label" for="contactIsPrimary">Contacto Principal</label>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Notas</label>
+            <textarea class="form-control" id="contactNotes" name="notes" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="CustomerDetails.saveContact()">Agregar Contacto</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

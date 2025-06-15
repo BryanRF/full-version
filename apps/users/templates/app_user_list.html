@@ -1,0 +1,156 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Users List - Apps{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-checkboxes-jquery/datatables.checkboxes.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/@form-validation/form-validation.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/moment/moment.js' %}"></script>
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/@form-validation/popular.js' %}"></script>
+<script src="{% static 'vendor/libs/@form-validation/bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/@form-validation/auto-focus.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/css/pages/app-users.css' %}" />
+{% endblock page_css %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/app-user-list.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-users">
+  <!-- Users List Table -->
+  <div class="card">
+
+    <div class="card-datatable table-responsive">
+      <table class="datatables-user-list table">
+        <thead>
+          <tr>
+            <th></th>
+            <th></th>
+            <th>Usuario</th>
+            <th>Email</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Fecha Creación</th>
+            <th class="text-lg-center">Acciones</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+  </div>
+
+  <!-- Offcanvas to add new user -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasUserList" aria-labelledby="offcanvasUserListLabel">
+    <!-- Offcanvas Header -->
+    <div class="offcanvas-header">
+      <h5 id="offcanvasUserListLabel" class="offcanvas-title">Agregar Usuario</h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <!-- Offcanvas Body -->
+    <div class="offcanvas-body border-top">
+      <form class="pt-0" id="userListForm">
+        {% csrf_token %}
+
+        <!-- Nombre -->
+        <div class="form-floating form-floating-outline mb-5">
+          <input type="text" class="form-control" id="user-nombre" placeholder="Ingrese el nombre" name="userNombre" aria-label="user nombre">
+          <label for="user-nombre">Nombre *</label>
+        </div>
+
+        <!-- Apellidos -->
+        <div class="form-floating form-floating-outline mb-5">
+          <input type="text" class="form-control" id="user-apellidos" placeholder="Ingrese los apellidos" name="userApellidos" aria-label="user apellidos">
+          <label for="user-apellidos">Apellidos *</label>
+        </div>
+
+        <!-- Email -->
+        <div class="form-floating form-floating-outline mb-5" id="email-container">
+          <input type="email" class="form-control" id="user-email" placeholder="ejemplo@correo.com" name="userEmail" aria-label="user email">
+          <label for="user-email">Email *</label>
+          <small class="text-muted" id="email-help-text">El username se generará automáticamente del email</small>
+          <small class="text-warning d-none" id="email-readonly-text">El email no se puede modificar una vez creado el usuario</small>
+        </div>
+
+        <!-- DNI -->
+        <div class="form-floating form-floating-outline mb-5">
+          <input type="text" class="form-control" id="user-dni" placeholder="Ingrese el DNI" name="userDni" aria-label="user dni">
+          <label for="user-dni">DNI *</label>
+        </div>
+
+        <!-- Fecha de Nacimiento -->
+        <div class="form-floating form-floating-outline mb-5">
+          <input type="date" class="form-control" id="user-fecha-nacimiento" name="userFechaNacimiento" aria-label="user fecha nacimiento">
+          <label for="user-fecha-nacimiento">Fecha de Nacimiento *</label>
+        </div>
+
+        <!-- Género -->
+        <div class="mb-5 users-select2-dropdown">
+          <div class="form-floating form-floating-outline">
+            <select id="user-genero" class="select2 form-select" data-placeholder="Seleccionar Género" name="userGenero">
+              <option value="">Seleccionar Género</option>
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+              <option value="O">Otro</option>
+            </select>
+            <label for="user-genero">Género *</label>
+          </div>
+        </div>
+
+        <!-- Rol -->
+        <div class="mb-5 users-select2-dropdown">
+          <div class="form-floating form-floating-outline">
+            <select id="user-role" class="select2 form-select" data-placeholder="Seleccionar Rol" name="userRole">
+              <option value="">Seleccionar Rol</option>
+              <option value="ADMINISTRADOR_SISTEMA">Administrador del Sistema</option>
+              <option value="GERENTE_COMPRAS">Gerente de Compras</option>
+              <option value="PLANIFICADOR_COMPRAS">Planificador de Compras</option>
+            </select>
+            <label for="user-role">Rol *</label>
+          </div>
+        </div>
+
+        <!-- Info adicional -->
+        <div class="alert alert-info mb-5">
+          <h6 class="alert-heading mb-2">Información Importante</h6>
+          <p class="mb-0">
+            • La contraseña se generará automáticamente y se enviará al correo del usuario<br>
+            • El usuario se creará con estado "Pendiente" inicialmente<br>
+            • El username se extraerá automáticamente del email<br>
+            • El rol determina los permisos del usuario en el sistema
+          </p>
+        </div>
+
+        <!-- Submit and reset -->
+        <div>
+          <button type="button" class="btn btn-primary me-3" onclick="createOrUpdateUser()">Agregar</button>
+          <button type="reset" class="btn btn-outline-danger" data-bs-dismiss="offcanvas">Descartar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,128 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}eCommerce Category List - Apps{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-checkboxes-jquery/datatables.checkboxes.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/@form-validation/form-validation.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/quill/typography.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/quill/katex.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/quill/editor.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/moment/moment.js' %}"></script>
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/@form-validation/popular.js' %}"></script>
+<script src="{% static 'vendor/libs/@form-validation/bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/@form-validation/auto-focus.js' %}"></script>
+<script src="{% static 'vendor/libs/quill/katex.js' %}"></script>
+<script src="{% static 'vendor/libs/quill/quill.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/css/pages/app-ecommerce.css' %}" />
+{% endblock page_css %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/app-ecommerce-categories-list.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-ecommerce-category">
+  <!-- Category List Table -->
+  <div class="card">
+    
+    <div class="card-datatable table-responsive">
+      <table class="datatables-category-list table">
+        <thead>
+          <tr>
+            <th></th>
+            <th></th>
+            <th>Categorias</th>
+            <th >Estado &nbsp;</th>
+            <th class="text-lg-center">Acciones</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+  </div>
+  <!-- Offcanvas to add new customer -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasEcommerceCategoryList" aria-labelledby="offcanvasEcommerceCategoryListLabel">
+    <!-- Offcanvas Header -->
+    <div class="offcanvas-header">
+      <h5 id="offcanvasEcommerceCategoryListLabel" class="offcanvas-title">Agregar Categoria</h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <!-- Offcanvas Body -->
+    <div class="offcanvas-body border-top">
+      <form class="pt-0" id="eCommerceCategoryListForm" >
+        {% csrf_token %}
+        <!-- Title -->
+        <div class="form-floating form-floating-outline mb-5">
+          <input type="text" class="form-control" id="ecommerce-category-title" placeholder="Enter category title" name="categoryTitle" aria-label="category title">
+          <label for="ecommerce-category-title">Nombre</label>
+        </div>
+
+        <!-- Image -->
+        <div class="form-floating form-floating-outline mb-5">
+          <input class="form-control" type="file" id="ecommerce-category-image" accept="image/*">
+          <label for="ecommerce-category-image">Imagen</label>
+        </div>
+      
+        <!-- Description -->
+        <div class="mb-5">
+          <div class="form-control p-0 pt-1">
+            <div class="comment-editor border-0" id="ecommerce-category-description">
+            </div>
+            <div class="comment-toolbar border-0 rounded">
+              <div class="d-flex justify-content-end">
+                <span class="ql-formats me-0">
+                  <button class="ql-bold" type="button"></button>
+                  <button class="ql-italic" type="button"></button>
+                  <button class="ql-underline" type="button"></button>
+                  <button class="ql-list" value="ordered" type="button"></button>
+                  <button class="ql-list" value="bullet" type="button"></button>
+                  <button class="ql-link" type="button"></button>
+                  <button class="ql-image" type="button"></button>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Status -->
+        <div class="mb-5 ecommerce-select2-dropdown">
+          <div class="form-floating form-floating-outline">
+            <select id="ecommerce-category-status" class="select2 form-select" data-placeholder="Seleccionar Estado">
+              <option value="">Seleccion Estado</option>
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+            <label for="ecommerce-category-status">Estado</label>
+          </div>
+        </div>
+        <!-- Submit and reset -->
+        <div>
+          <button type="button" class="btn btn-primary me-3" onclick="createOrUpdateCategory()">Agregar</button>
+          <button type="reset" class="btn btn-outline-danger" data-bs-dismiss="offcanvas">Descartar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,460 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Detalles del Requerimiento{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/requirements-details.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Requirement Details Header -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+  <div class="d-flex flex-column justify-content-center">
+    <h4 class="mb-1">Detalles del Requerimiento</h4>
+    <p class="mb-0">Información completa y gestión del requerimiento</p>
+  </div>
+  <div class="d-flex align-content-center flex-wrap gap-2">
+    <a href="{% url 'app-requirements-list' %}" class="btn btn-outline-secondary">
+      <i class="ri-arrow-left-line me-1"></i>Volver a Lista
+    </a>
+    <div class="btn-group" role="group">
+      <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="ri-download-2-line me-1"></i>Exportar
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.exportPDF()">
+          <i class="ri-file-pdf-line me-2"></i>PDF para Proveedores
+        </a></li>
+        <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.exportExcel()">
+          <i class="ri-file-excel-line me-2"></i>Excel para Cotización
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.exportComparisonExcel()">
+          <i class="ri-bar-chart-line me-2"></i>Comparación Excel
+        </a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Requirement Info Card -->
+<div class="row">
+  <div class="col-xl-4 col-lg-5 col-md-5">
+    <div class="card mb-6">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+          <div class="d-flex flex-column">
+            <h5 class="mb-1" id="requirementNumber">REQ-00000</h5>
+            <p class="mb-0" id="requirementDate">-</p>
+          </div>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+              <i class="ri-more-2-line"></i>
+            </button>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.editRequirement()">
+                <i class="ri-edit-line me-2"></i>Editar
+              </a></li>
+              <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.duplicateRequirement()">
+                <i class="ri-file-copy-line me-2"></i>Duplicar
+              </a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="RequirementDetails.deleteRequirement()">
+                <i class="ri-delete-bin-line me-2"></i>Eliminar
+              </a></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Status Badge -->
+        <div class="mb-4">
+          <span class="badge bg-label-warning rounded-pill" id="statusBadge">Pendiente</span>
+          <span class="badge bg-label-info rounded-pill ms-2" id="priorityBadge">Media</span>
+        </div>
+
+        <!-- User Info -->
+        <div class="mb-4">
+          <h6 class="mb-2">Solicitante</h6>
+          <div class="d-flex align-items-center">
+            <div class="avatar avatar-sm me-3">
+              <span class="avatar-initial rounded bg-label-primary">
+                <i class="ri-user-line"></i>
+              </span>
+            </div>
+            <div>
+              <h6 class="mb-0" id="userName">-</h6>
+              <small class="text-muted" id="userEmail">-</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="row g-3 mb-4">
+          <div class="col-6">
+            <div class="d-flex align-items-center">
+              <div class="avatar avatar-sm me-3">
+                <span class="avatar-initial rounded bg-label-info">
+                  <i class="ri-shopping-bag-line"></i>
+                </span>
+              </div>
+              <div>
+                <h6 class="mb-0" id="totalProducts">0</h6>
+                <small class="text-muted">Productos</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="d-flex align-items-center">
+              <div class="avatar avatar-sm me-3">
+                <span class="avatar-initial rounded bg-label-success">
+                  <i class="ri-stack-line"></i>
+                </span>
+              </div>
+              <div>
+                <h6 class="mb-0" id="totalQuantity">0</h6>
+                <small class="text-muted">Cantidad</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="mb-4" id="notesSection" style="display: none;">
+          <h6 class="mb-2">Observaciones</h6>
+          <p class="mb-0 text-muted" id="requirementNotes">-</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-grid gap-2" id="actionButtons">
+          <!-- Action buttons will be populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8 col-lg-7 col-md-7">
+    <!-- Stock Analysis Card -->
+    <div class="card mb-6">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Análisis de Stock</h5>
+        <button class="btn btn-sm btn-outline-primary" onclick="RequirementDetails.refreshStockAnalysis()">
+          <i class="ri-refresh-line me-1"></i>Actualizar
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="row g-4">
+          <div class="col-md-3">
+            <div class="text-center">
+              <div class="avatar avatar-lg mx-auto mb-3">
+                <span class="avatar-initial rounded bg-label-success">
+                  <i class="ri-check-double-line ri-26px"></i>
+                </span>
+              </div>
+              <h4 class="mb-1" id="stockAvailable">0</h4>
+              <small class="text-muted">Con Stock Suficiente</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="text-center">
+              <div class="avatar avatar-lg mx-auto mb-3">
+                <span class="avatar-initial rounded bg-label-warning">
+                  <i class="ri-alert-line ri-26px"></i>
+                </span>
+              </div>
+              <h4 class="mb-1" id="stockInsufficient">0</h4>
+              <small class="text-muted">Stock Insuficiente</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="text-center">
+              <div class="avatar avatar-lg mx-auto mb-3">
+                <span class="avatar-initial rounded bg-label-danger">
+                  <i class="ri-close-circle-line ri-26px"></i>
+                </span>
+              </div>
+              <h4 class="mb-1" id="stockUnavailable">0</h4>
+              <small class="text-muted">Sin Stock</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="text-center">
+              <div class="avatar avatar-lg mx-auto mb-3">
+                <span class="avatar-initial rounded bg-label-info">
+                  <i class="ri-percent-line ri-26px"></i>
+                </span>
+              </div>
+              <h4 class="mb-1" id="stockCoverage">0%</h4>
+              <small class="text-muted">Cobertura</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products Table -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Productos Solicitados</h5>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-success" onclick="RequirementDetails.addProduct()" id="addProductBtn" style="display: none;">
+            <i class="ri-add-line me-1"></i>Agregar Producto
+          </button>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+              <i class="ri-filter-line me-1"></i>Filtros
+            </button>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.filterByStock('sufficient')">
+                <i class="ri-check-line me-2 text-success"></i>Con Stock Suficiente
+              </a></li>
+              <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.filterByStock('insufficient')">
+                <i class="ri-alert-line me-2 text-warning"></i>Stock Insuficiente
+              </a></li>
+              <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.filterByStock('unavailable')">
+                <i class="ri-close-line me-2 text-danger"></i>Sin Stock
+              </a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="javascript:void(0)" onclick="RequirementDetails.clearFilters()">
+                <i class="ri-refresh-line me-2"></i>Limpiar Filtros
+              </a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="card-datatable table-responsive">
+        <table class="datatables-products table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th>Cant. Solicitada</th>
+              <th>Unidad</th>
+              <th>Stock Actual</th>
+              <th>Estado Stock</th>
+              <th>Precio Est.</th>
+              <th>Observaciones</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cotizaciones Section (if applicable) -->
+<div class="row mt-6" id="quotationsSection" style="display: none;">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="card-title mb-1">Cotizaciones</h5>
+          <p class="card-subtitle text-muted mb-0">Gestión de cotizaciones para este requerimiento</p>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" onclick="RequirementDetails.createQuotation()">
+            <i class="ri-add-line me-1"></i>Nueva Cotización
+          </button>
+          <button class="btn btn-outline-info" onclick="RequirementDetails.compareQuotations()">
+            <i class="ri-bar-chart-line me-1"></i>Comparar
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="quotationsContainer">
+          <!-- Quotations will be loaded here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Product Modal -->
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editProductForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <input type="text" class="form-control" id="editProductName" readonly>
+            <label>Producto</label>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <input type="number" class="form-control" id="editQuantity" min="1" required>
+            <label>Cantidad Solicitada *</label>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <input type="text" class="form-control" id="editUnit" required>
+            <label>Unidad de Medida *</label>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="editObservations" placeholder="Observaciones específicas..."></textarea>
+            <label>Observaciones</label>
+          </div>
+          
+          <div class="alert alert-info d-flex" id="stockAlert">
+            <i class="ri-information-line me-2"></i>
+            <div>
+              <strong>Stock Actual:</strong> <span id="currentStock">0</span><br>
+              <small class="text-muted">Verifica la disponibilidad antes de confirmar</small>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="RequirementDetails.saveProductChanges()">
+          <i class="ri-save-line me-1"></i>Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agregar Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addProductForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <select class="form-select" id="productSelect" required>
+              <option value="">Seleccionar producto...</option>
+            </select>
+            <label>Producto *</label>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-floating form-floating-outline mb-4">
+                <input type="number" class="form-control" id="newQuantity" min="1" value="1" required>
+                <label>Cantidad *</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-floating form-floating-outline mb-4">
+                <input type="text" class="form-control" id="newUnit" value="unidad" required>
+                <label>Unidad *</label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="newObservations" placeholder="Observaciones específicas..."></textarea>
+            <label>Observaciones</label>
+          </div>
+          
+          <div class="alert alert-warning d-none" id="duplicateWarning">
+            <i class="ri-alert-line me-2"></i>
+            Este producto ya está en el requerimiento. Se actualizará la cantidad.
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="RequirementDetails.saveNewProduct()">
+          <i class="ri-add-line me-1"></i>Agregar Producto
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Change Status Modal -->
+<div class="modal fade" id="changeStatusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cambiar Estado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="changeStatusForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <select class="form-select" id="newStatus" required>
+              <option value="">Seleccionar estado...</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="aprobado">Aprobado</option>
+              <option value="rechazado">Rechazado</option>
+              <option value="en_proceso_cotizacion">En Proceso Cotización</option>
+              <option value="cotizado">Cotizado</option>
+              <option value="orden_generada">Orden Generada</option>
+              <option value="completado">Completado</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+            <label>Nuevo Estado *</label>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="statusNotes" placeholder="Motivo del cambio..."></textarea>
+            <label>Notas (Opcional)</label>
+          </div>
+          
+          <div class="alert alert-info d-none" id="statusInfo">
+            <i class="ri-information-line me-2"></i>
+            <span id="statusInfoText"></span>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="RequirementDetails.confirmStatusChange()">
+          Cambiar Estado
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Procesando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden data for JavaScript -->
+<script type="application/json" id="requirementData">
+  {
+    "requirementId": {{ requirement.id|default:"null" }},
+    "canEdit": {{ requirement.can_edit|yesno:"true,false" }},
+    "currentStatus": "{{ requirement.estado|default:"pendiente" }}"
+  }
+</script>
+{% endblock %}

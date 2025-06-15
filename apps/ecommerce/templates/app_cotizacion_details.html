@@ -1,0 +1,592 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Detalles de Cotización{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/cotizacion-compare-validation.js' %}"></script>
+
+<script src="{% static 'js/cotizacion-details.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-cotizacion-details">
+  <!-- Header -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-6 row-gap-4">
+    <div class="d-flex flex-column justify-content-center">
+      <h4 class="mb-1">Detalles de Cotización</h4>
+      <p class="mb-0">Información completa del envío y respuesta</p>
+    </div>
+    <div class="d-flex align-content-center flex-wrap gap-4">
+      <a href="/app/cotizacion/list/" class="btn btn-outline-secondary">Volver a Lista</a>
+      <div class="btn-group">
+        <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+          Acciones
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item" href="#" id="generateExcelBtn">📄 Generar Excel</a></li>
+          <li><a class="dropdown-item" href="#" id="resendEmailBtn">📧 Reenviar Email</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="#" id="uploadResponseBtn">📤 Subir Respuesta</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-danger">
+    <i class="ri-error-warning-line me-2"></i>{{ error }}
+  </div>
+  {% elif not envio %}
+  <div class="alert alert-warning">
+    <i class="ri-alert-line me-2"></i>No se encontró el envío de cotización.
+  </div>
+  {% else %}
+
+  <div class="row">
+    <!-- Información del Envío -->
+    <div class="col-12 col-lg-8">
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Información del Envío</h5>
+          <span class="badge bg-label-primary fs-6" id="estadoEnvio">{{ envio.estado_display }}</span>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <table class="table table-borderless">
+                <tr>
+                  <td><strong>Número de Envío:</strong></td>
+                  <td id="numeroEnvio">{{ envio.numero_envio }}</td>
+                </tr>
+                <tr>
+                  <td><strong>Requerimiento:</strong></td>
+                  <td>
+                    <a href="/app/requirements/details/{{ envio.requerimiento.id }}/" class="text-decoration-none">
+                      {{ envio.requerimiento.numero_requerimiento }}
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Proveedor:</strong></td>
+                  <td id="nombreProveedor">{{ envio.proveedor.company_name }}</td>
+                </tr>
+                <tr>
+                  <td><strong>Contacto:</strong></td>
+                  <td>
+                    <div>{{ envio.proveedor.contact_person }}</div>
+                    <small class="text-muted">
+                      {% if envio.proveedor.email %}
+                        📧 {{ envio.proveedor.email }}
+                      {% else %}
+                        📞 {{ envio.proveedor.phone_primary }}
+                      {% endif %}
+                    </small>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <div class="col-md-6">
+              <table class="table table-borderless">
+                <tr>
+                  <td><strong>Método de Envío:</strong></td>
+                  <td>
+                    <span class="badge bg-label-info">{{ envio.metodo_envio_display }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Fecha de Envío:</strong></td>
+                  <td>{{ envio.fecha_envio|date:"d/m/Y H:i"|default:"No enviado" }}</td>
+                </tr>
+                <tr>
+                  <td><strong>Fecha Límite:</strong></td>
+                  <td id="fechaLimite">{{ envio.fecha_respuesta_esperada|date:"d/m/Y" }}</td>
+                </tr>
+                <tr>
+                  <td><strong>Días Restantes:</strong></td>
+                  <td>
+                    <span class="badge" id="diasRestantes">
+                      {% if envio.dias_hasta_respuesta >= 0 %}
+                        {{ envio.dias_hasta_respuesta }} días
+                      {% else %}
+                        {{ envio.dias_hasta_respuesta|floatformat:0 }} días vencido
+                      {% endif %}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          
+          {% if envio.notas_envio %}
+          <div class="mt-3">
+            <h6>Notas del Envío:</h6>
+            <p class="text-muted">{{ envio.notas_envio }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Productos Solicitados -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Productos Solicitados</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered" id="productosTable">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Unidad</th>
+                  <th>Stock Disponible</th>
+                  <th>Precio Cotizado</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="productosTableBody">
+                <!-- Se carga dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Respuesta de Cotización -->
+      <div class="card mb-6" id="respuestaCard" style="display: none;">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Respuesta de Cotización</h5>
+        </div>
+        <div class="card-body">
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <table class="table table-borderless">
+                <tr>
+                  <td><strong>Fecha de Respuesta:</strong></td>
+                  <td id="fechaRespuesta">-</td>
+                </tr>
+                <tr>
+                  <td><strong>Términos de Pago:</strong></td>
+                  <td id="terminosPago">-</td>
+                </tr>
+                <tr>
+                  <td><strong>Tiempo de Entrega:</strong></td>
+                  <td id="tiempoEntrega">-</td>
+                </tr>
+              </table>
+            </div>
+            <div class="col-md-6">
+              <table class="table table-borderless">
+                <tr>
+                  <td><strong>Validez Cotización:</strong></td>
+                  <td id="validezCotizacion">-</td>
+                </tr>
+                <tr>
+                  <td><strong>Incluye IGV:</strong></td>
+                  <td id="incluyeIgv">-</td>
+                </tr>
+                <tr>
+                  <td><strong>Total Cotizado:</strong></td>
+                  <td><strong id="totalCotizado">S/ 0.00</strong></td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div id="observacionesRespuesta" style="display: none;">
+            <h6>Observaciones:</h6>
+            <p class="text-muted" id="observacionesTexto"></p>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Precio Unit.</th>
+                  <th>Subtotal</th>
+                  <th>Tiempo Entrega</th>
+                  <th>Observaciones</th>
+                </tr>
+              </thead>
+              <tbody id="respuestaDetallesBody">
+                <!-- Se carga dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel Lateral -->
+    <div class="col-12 col-lg-4">
+      <!-- Estado y Progreso -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Estado del Proceso</h5>
+        </div>
+        <div class="card-body">
+          <div class="timeline" id="timelineProgreso">
+            <!-- Se carga dinámicamente -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Archivos -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Archivos</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <span>📄 Excel Plantilla</span>
+              <button class="btn btn-sm btn-outline-success" id="downloadTemplateBtn">
+                <i class="ri-download-line"></i>
+              </button>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center">
+              <span>📋 PDF Requerimiento</span>
+              <button class="btn btn-sm btn-outline-danger" id="downloadPdfBtn">
+                <i class="ri-download-line"></i>
+              </button>
+            </div>
+            
+            <hr>
+            
+            <div id="archivoRespuestaSection">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span>📤 Respuesta Cliente</span>
+                <span class="badge" id="estadoArchivo">No subido</span>
+              </div>
+              
+              <div class="input-group">
+                <input type="file" class="form-control" id="archivoRespuesta" accept=".xlsx,.xls">
+                <button class="btn btn-outline-primary" type="button" id="subirArchivoBtn">
+                  Subir
+                </button>
+              </div>
+              
+              <div class="mt-2" id="archivoInfo" style="display: none;">
+                <small class="text-muted">
+                  <i class="ri-information-line me-1"></i>
+                  <span id="archivoInfoTexto">-</span>
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acciones Rápidas -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Acciones Rápidas</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-primary" id="reprocessBtn" style="display: none;">
+              <i class="ri-refresh-line me-1"></i>Reprocesar Respuesta
+            </button>
+            
+            <button class="btn btn-outline-info" id="compareBtn" style="display: none;">
+              <i class="ri-scales-line me-1"></i>Comparar Cotizaciones
+            </button>
+            
+            <button class="btn btn-outline-warning" id="confirmManualBtn" style="display: none;">
+              <i class="ri-check-line me-1"></i>Confirmar Envío Manual
+            </button>
+            
+           
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% endif %}
+</div>
+
+<!-- Modal para subir archivo -->
+<!-- Modal para subir archivo mejorado -->
+<div class="modal fade" id="uploadResponseModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Subir Respuesta de Cotización</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="uploadResponseForm" enctype="multipart/form-data">
+          <div class="mb-4">
+            <label for="archivoRespuestaModal" class="form-label">Archivo Excel de Respuesta</label>
+            <input class="form-control" type="file" id="archivoRespuestaModal" name="archivo" accept=".xlsx,.xls" required>
+            <div class="form-text">Solo archivos Excel (.xlsx, .xls) completados por el proveedor</div>
+          </div>
+          
+          <div class="alert alert-info">
+            <i class="ri-information-line me-2"></i>
+            <strong>Proceso de Validación:</strong><br>
+            1. Seleccione el archivo Excel completado por el proveedor<br>
+            2. El sistema validará automáticamente la estructura y contenido<br>
+            3. Se mostrará un reporte de validación antes de procesar<br>
+            4. Solo archivos válidos podrán ser procesados
+          </div>
+          
+          <div class="mb-3">
+            <h6>Estructura Esperada del Excel:</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                  <tr style="font-size: 11px;">
+                    <th>CÓDIGO</th>
+                    <th>PRODUCTO</th>
+                    <th>CATEGORÍA</th>
+                    <th>CANT. SOLICITADA</th>
+                    <th>UNIDAD</th>
+                    <th>CANT. DISPONIBLE</th>
+                    <th >PRECIO U.</th>
+                    <th>PRECIO TOTAL</th>
+                    <th>OBSERVACIONES</th>
+                  </tr>
+                </thead>
+                <tbody style="font-size: 10px;">
+                  <tr>
+                    <td>PROD-000001</td>
+                    <td>PRODUCTO EJEMPLO</td>
+                    <td>CATEGORIA 1</td>
+                    <td>1</td>
+                    <td>unidad</td>
+                    <td>10</td>
+                    <td ><strong>15.00</strong></td>
+                    <td>15.00</td>
+                    <td>Disponible</td>
+                  </tr>
+                  <tr>
+                    <td>PROD-000002</td>
+                    <td>PRODUCTO EJEMPLO 2</td>
+                    <td>CATEGORIA 2</td>
+                    <td>5</td>
+                    <td>unidad</td>
+                    <td>20</td>
+                    <td ><strong>10.00</strong></td>
+                    <td>50.00</td>
+                    <td>Entrega 3 días</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="alert alert-warning mt-2">
+              <i class="ri-alert-line me-2"></i>
+              <strong>Importante:</strong> Las columnas <strong>CÓDIGO</strong> y <strong>PRECIO U.</strong> son críticas y deben estar exactamente en las posiciones A y G respectivamente.
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <h6>✅ Validaciones Automáticas:</h6>
+              <ul class="small text-success">
+                <li>Estructura de columnas correcta</li>
+                <li>Códigos de productos válidos</li>
+                <li>Precios en formato numérico</li>
+                <li>Coincidencia con productos solicitados</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6>⚠️ Errores Comunes:</h6>
+              <ul class="small text-warning">
+                <li>Cambiar el orden de columnas</li>
+                <li>Modificar códigos de productos</li>
+                <li>Dejar precios vacíos o con texto</li>
+                <li>Eliminar filas de productos</li>
+              </ul>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="processUploadBtn">
+          <i class="ri-shield-check-line me-1"></i>Validar y Procesar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Script para incluir SheetJS si no está disponible -->
+<script>
+// Verificar si SheetJS está disponible, si no, cargarlo dinámicamente
+if (typeof XLSX === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = function() {
+        console.log('SheetJS loaded for Excel validation');
+    };
+    document.head.appendChild(script);
+}
+</script>
+
+<!-- Estilos adicionales para validación -->
+<style>
+.validation-report .alert {
+    border-left: 4px solid;
+}
+
+.validation-report .alert-success {
+    border-left-color: #28a745;
+}
+
+.validation-report .alert-danger {
+    border-left-color: #dc3545;
+}
+
+.validation-report .alert-warning {
+    border-left-color: #ffc107;
+}
+
+.validation-report .alert-info {
+    border-left-color: #17a2b8;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 50px;
+    margin-bottom: 20px;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 40px;
+    width: 2px;
+    height: calc(100% - 10px);
+    background-color: #e3e6f0;
+}
+
+.timeline-item-completed:not(:last-child)::before {
+    background-color: #1cc88a;
+}
+
+.timeline-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f8f9fc;
+    border: 2px solid #e3e6f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.timeline-item-completed .timeline-indicator {
+    border-color: #1cc88a;
+    background-color: #1cc88a;
+    color: white;
+}
+
+.table-warning {
+    background-color: #fff3cd !important;
+}
+
+.validation-file-info {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.validation-file-info .file-icon {
+    font-size: 2rem;
+    color: #198754;
+}
+
+.progress-validation {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #e9ecef;
+}
+
+.progress-validation .progress-bar {
+    background-color: #198754;
+    transition: width 0.3s ease;
+}
+</style>
+
+<!-- Modal para confirmar envío manual -->
+<div class="modal fade" id="confirmManualModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar Envío Manual</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="confirmManualForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <select id="metodoEnvioManual" class="form-select" name="metodo_envio" required>
+              <option value="">Seleccionar método...</option>
+              <option value="telefono">Teléfono</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="otro">Otro</option>
+            </select>
+            <label for="metodoEnvioManual">Método de Envío</label>
+          </div>
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="notasEnvioManual" name="notas" placeholder="Detalles del envío..."></textarea>
+            <label for="notasEnvioManual">Notas del Envío</label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="saveConfirmManualBtn">Confirmar Envío</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Procesando...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Configuración inicial
+window.ENVIO_ID = {{ envio.id|default:0 }};
+</script>
+{% endblock %}

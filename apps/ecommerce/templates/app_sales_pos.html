@@ -1,0 +1,358 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Punto de Venta (POS){% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+<style>
+.product-card {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.product-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.product-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+.product-placeholder {
+    width: 60px;
+    height: 60px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #6c757d;
+}
+.cart-item {
+    transition: background-color 0.2s;
+}
+.cart-item:hover {
+    border-color: rgb(32, 16, 80);
+    background-color: initial;
+}
+.customer-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.customer-item:hover {
+    border-color: rgb(32, 16, 80);
+    background-color: initial;
+}
+.pos-sidebar {
+    height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+.keyboard-shortcuts {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.2);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    z-index: 1000;
+}
+.search-result-item {
+    transition: all 0.2s;
+}
+.search-result-item:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+#customerSearchResults {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+</style>
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/pos-system.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-pos-system">
+  <!-- Header -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+    <div class="d-flex flex-column justify-content-center">
+      <h4 class="mb-1">Punto de Venta (POS)</h4>
+      <p class="mb-0">Sistema de ventas rápidas</p>
+    </div>
+    <div class="d-flex align-content-center flex-wrap gap-4">
+      <button type="button" class="btn btn-outline-warning" onclick="POSSystem.resetPOS()">
+        <i class="ri-refresh-line me-1"></i>Limpiar Todo
+      </button>
+      <a href="/app/sales/list/" class="btn btn-outline-secondary">
+        <i class="ri-list-check me-1"></i>Ver Ventas
+      </a>
+    </div>
+  </div>
+  <div class="row">
+    <!-- Panel Principal - Productos -->
+    <div class="col-lg-8">
+      <!-- Búsqueda de Productos -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="input-group">
+            <span class="input-group-text"><i class="ri-search-line"></i></span>
+            <input type="text" class="form-control" id="productSearch" 
+                   placeholder="Buscar productos por nombre, código... (F1)" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Grilla de Productos -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Productos Disponibles</h5>
+        </div>
+        <div class="card-body">
+          <div class="row" id="productGrid">
+            <!-- Los productos se cargan dinámicamente -->
+            <div class="col-12 text-center py-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando productos...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Panel Lateral - Carrito y Cliente -->
+    <div class="col-lg-4">
+      <!-- Cliente -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0">Cliente</h6>
+        </div>
+        <div class="card-body">
+          <!-- Búsqueda de Cliente -->
+          <div class="position-relative">
+            <div class="input-group mb-3">
+              <span class="input-group-text"><i class="ri-user-search-line"></i></span>
+              <input type="text" class="form-control" id="customerSearch" 
+                     placeholder="DNI (8 dígitos) o RUC (11 dígitos)... (F2)" 
+                     autocomplete="off" />
+            </div>
+            
+            <!-- Resultados de búsqueda -->
+            <div id="customerSearchResults"></div>
+          </div>
+
+          <!-- Cliente Seleccionado -->
+          <div id="selectedCustomer">
+            <div class="text-center text-muted py-3">
+              <i class="ri-user-line ri-24px mb-2 d-block"></i>
+              <small>Cliente no seleccionado</small>
+              <br>
+              <small class="text-info">Ingrese DNI o RUC para buscar automáticamente</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Carrito -->
+      <div class="card mb-4 pos-sidebar">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="card-title mb-0">Carrito de Compras</h6>
+          <button class="btn btn-sm btn-outline-danger" onclick="POSSystem.resetPOS()">
+            <i class="ri-delete-bin-line"></i>
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <!-- Items del Carrito -->
+          <div id="cartItems">
+            <div class="text-center text-muted py-4">
+              <i class="ri-shopping-cart-line ri-48px mb-3 d-block"></i>
+              <p>Carrito vacío</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totales y Checkout -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="card-title mb-0">Resumen de Venta</h6>
+        </div>
+        <div class="card-body">
+          <!-- Totales -->
+          <div id="cartTotals">
+            <div class="d-flex justify-content-between mb-2">
+              <span>Subtotal:</span>
+              <span>S/.0.00</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+              <span>IGV (18%):</span>
+              <span>S/.0.00</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+              <span>Descuento:</span>
+              <span>S/.0.00</span>
+            </div>
+            <hr>
+            <div class="d-flex justify-content-between fw-bold">
+              <span>Total:</span>
+              <span class="text-primary">S/.0.00</span>
+            </div>
+          </div>
+
+          <!-- Descuento -->
+          <div class="mt-3">
+            <label class="form-label">Descuento</label>
+            <div class="input-group">
+              <span class="input-group-text">S/.</span>
+              <input type="number" class="form-control" id="discountAmount" 
+                     placeholder="0.00" step="0.01" min="0"
+                     onchange="POSSystem.config.discount = parseFloat(this.value) || 0; POSSystem.calculateTotals();">
+            </div>
+          </div>
+
+          <!-- Método de Pago -->
+          <div class="mt-3">
+            <label class="form-label">Método de Pago *</label>
+            <select class="form-select" id="paymentMethod" required>
+              <option value="">Seleccionar método...</option>
+              {% for method_value, method_label in payment_methods %}
+              <option value="{{ method_value }}">{{ method_label }}</option>
+              {% endfor %}
+            </select>
+            
+            <!-- Campos para pago en efectivo -->
+            <div id="cashPaymentFields" style="display: none;" class="mt-3">
+              <div class="row">
+                <div class="col-6">
+                  <label class="form-label">Monto Recibido</label>
+                  <div class="input-group">
+                    <span class="input-group-text">S/.</span>
+                    <input type="number" class="form-control" id="cashReceived" 
+                           placeholder="0.00" step="0.01" min="0">
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Vuelto</label>
+                  <div class="input-group">
+                    <span class="input-group-text">S/.</span>
+                    <input type="text" class="form-control" id="changeAmount" 
+                           readonly placeholder="0.00">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notas -->
+          <div class="mt-3">
+            <label class="form-label">Notas (Opcional)</label>
+            <textarea class="form-control" id="saleNotes" rows="2" 
+                      placeholder="Observaciones de la venta..."></textarea>
+          </div>
+
+          <!-- Botón de Checkout -->
+          <button type="button" class="btn btn-primary w-100 mt-4" id="checkoutButton" disabled>
+            <i class="ri-check-line me-1"></i>Procesar Venta (F3)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Venta Exitosa -->
+<div class="modal fade" id="saleSuccessModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-success">
+          <i class="ri-check-circle-line me-2"></i>¡Venta Exitosa!
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="mb-4">
+          <i class="ri-check-circle-fill text-success" style="font-size: 48px;"></i>
+        </div>
+        
+        <h6>Venta Registrada</h6>
+        <p class="text-muted">La venta ha sido procesada exitosamente</p>
+        
+        <div class="row text-start">
+          <div class="col-6">
+            <strong>Número de Venta:</strong>
+          </div>
+          <div class="col-6">
+            <span id="saleNumber">-</span>
+          </div>
+        </div>
+        
+        <div class="row text-start">
+          <div class="col-6">
+            <strong>Total:</strong>
+          </div>
+          <div class="col-6">
+            <span id="saleTotal" class="text-success fw-bold">S/.0.00</span>
+          </div>
+        </div>
+        
+        <div class="row text-start">
+          <div class="col-6">
+            <strong>Cliente:</strong>
+          </div>
+          <div class="col-6">
+            <span id="saleCustomer">-</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cerrar
+        </button>
+        <button type="button" class="btn btn-primary" onclick="POSSystem.printReceipt()">
+          <i class="ri-printer-line me-1"></i>Imprimir Recibo
+        </button>
+        <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="POSSystem.resetPOS()">
+          <i class="ri-add-line me-1"></i>Nueva Venta
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Atajos de Teclado -->
+<div class="keyboard-shortcuts d-none d-lg-block">
+  <div class="fw-bold mb-1">Atajos:</div>
+  <div>F1 - Buscar productos</div>
+  <div>F2 - Buscar clientes</div>
+  <div>F3 - Procesar venta</div>
+  <div>ESC - Limpiar carrito</div>
+</div>
+{% endblock %}

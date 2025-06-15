@@ -1,0 +1,156 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Product List - eCommerce{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-checkboxes-jquery/datatables.checkboxes.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/app-ecommerce-products-list.js' %}"></script>
+<script src="{% static 'js/app-ecommerce-products-analytics.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Product List Widget -->
+<div class="card mb-6">
+  <div class="card-widget-separator-wrapper">
+    <div class="card-body card-widget-separator">
+      <div class="row gy-4 gy-sm-1" id="inventoryStats">
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Total Productos</p>
+              <h4 class="mb-1" id="totalProducts">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="activeProducts">0 activos</span>
+                <span class="badge rounded-pill bg-label-info" id="productsTrend">+0%</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+               📦
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none me-6">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Valor Inventario</p>
+              <h4 class="mb-1" id="inventoryValue">S/. 0.00</h4>
+              <p class="mb-0">
+                <span class="me-2" id="inventoryCount">0 productos</span>
+                <span class="badge rounded-pill bg-label-success" id="valueTrend">+0%</span>
+              </p>
+            </div>
+            <div class="avatar me-lg-6">
+              <span class="avatar-initial rounded text-heading">
+               💹
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+            <div>
+              <p class="mb-1">Stock Bajo</p>
+              <h4 class="mb-1" id="lowStockCount">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="lowStockText">Estado:</span>
+                <span class="badge rounded-pill bg-label-success" id="lowStockTrend">OK</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-alert-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <p class="mb-1">Sin Stock</p>
+              <h4 class="mb-1" id="outOfStockCount">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="outOfStockText">Estado:</span>
+                <span class="badge rounded-pill bg-label-success" id="outOfStockTrend">OK</span>
+              </p>
+            </div>
+            <div class="avatar">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-error-warning-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Product List Table -->
+<div class="card">
+  <div class="card-header">
+    <h5 class="card-title mb-4">Filter</h5>
+    <div class="d-flex justify-content-between align-items-center row gap-5 gx-6 gap-md-0">
+      <div class="col-md-4 product_status"></div>
+      <div class="col-md-4 product_category"></div>
+      <div class="col-md-4 product_stock"></div>
+    </div>
+  </div>
+  <div class="card-datatable table-responsive">
+    <table class="datatables-products table">
+      <thead>
+        <tr>
+         <th></th> <!-- Columna de control responsive -->
+<th></th> <!-- Columna de checkboxes -->
+<th>Producto</th>
+<th>Categoría</th>
+<th>Codigo</th>
+<th>Estado</th>
+<th>Stock Actual</th>
+<th>Stock Mínimo</th>
+<th>Stock Máximo</th>
+<th>Precio</th>
+<th>Precio Oferta</th>
+<th>Peso</th>
+<th>Impuesto</th>
+<th>Frágil</th>
+<th>Congelado</th>
+<th>Caducidad</th>
+<th>Fecha Creación</th>
+<th>Acciones</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+{% endblock %}

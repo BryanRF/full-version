@@ -1,0 +1,284 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Lista de Requerimientos{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+<script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<!-- Scripts modulares para requerimientos -->
+<script src="{% static 'js/requirements-pdf.js' %}"></script>
+<script src="{% static 'js/requirements-analytics.js' %}"></script>
+<script src="{% static 'js/requirements-list.js' %}"></script>
+<script src="{% static 'js/requirements-filters.js' %}"></script>
+<script src="{% static 'js/requirements-actions.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/handlebars@latest/dist/handlebars.js"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Requirements Analytics Widget -->
+<div class="card mb-6">
+  <div class="card-widget-separator-wrapper">
+    <div class="card-body card-widget-separator">
+      <div class="row gy-4 gy-sm-1" id="requirementsStats">
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Total Requerimientos</p>
+              <h4 class="mb-1" id="totalRequirements">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="activeRequirements">0 activos</span>
+                <span class="badge rounded-pill bg-label-info" id="requirementsTrend">📋</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                📋
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none me-6">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Pendientes</p>
+              <h4 class="mb-1" id="pendingRequirements">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="pendingPercentage">0%</span>
+                <span class="badge rounded-pill bg-label-warning" id="pendingTrend">⏳</span>
+              </p>
+            </div>
+            <div class="avatar me-lg-6">
+              <span class="avatar-initial rounded text-heading">
+                ⏳
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+            <div>
+              <p class="mb-1">Aprobados</p>
+              <h4 class="mb-1" id="approvedRequirements">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="approvedText">En proceso</span>
+                <span class="badge rounded-pill bg-label-success" id="approvedTrend">✅</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-check-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <p class="mb-1">Completados</p>
+              <h4 class="mb-1" id="completedRequirements">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="completedText">Finalizados</span>
+                <span class="badge rounded-pill bg-label-success" id="completedTrend">🎯</span>
+              </p>
+            </div>
+            <div class="avatar">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-trophy-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Requirements List Table -->
+<div class="card">
+  <div class="card-header">
+    <h5 class="card-title mb-4">Filtros</h5>
+    <div class="d-flex justify-content-between align-items-center row gap-5 gx-6 gap-md-0">
+      <div class="col-md-2 requirement_status"></div>
+      <div class="col-md-2 requirement_priority"></div>
+      <div class="col-md-2 requirement_user"></div>
+      <div class="col-md-2 requirement_date_range"></div>
+      <div class="col-md-4 requirement_search">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="requirementSearch" placeholder="Buscar requerimientos..." />
+          <label for="requirementSearch">Buscar</label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-datatable table-responsive">
+    <table class="datatables-requirements table">
+      <thead>
+        <tr>
+          <th></th> <!-- Control responsive -->
+          <th></th> <!-- Checkboxes -->
+          <th>Número</th>
+          <th>Solicitante</th>
+          <th>Fecha Requerida</th>
+          <th>Prioridad</th>
+          <th>Estado</th>
+          <th>Productos</th>
+          <th>Cantidad Total</th>
+          <th>Fecha Creación</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+<!-- Modal para ver detalles -->
+<div class="modal fade" id="requirementDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="requirementDetailsModalLabel">Detalles del Requerimiento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="requirementDetailsContent">
+          <!-- El contenido se cargará dinámicamente -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <div id="requirementActions">
+          <!-- Los botones de acción se cargarán dinámicamente -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para cambiar estado -->
+<div class="modal fade" id="changeStatusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cambiar Estado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="changeStatusForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <select id="newStatus" class="form-select" name="estado">
+              <option value="">Seleccionar estado...</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="aprobado">Aprobado</option>
+              <option value="rechazado">Rechazado</option>
+              <option value="en_proceso_cotizacion">En Proceso Cotización</option>
+              <option value="cotizado">Cotizado</option>
+              <option value="orden_generada">Orden Generada</option>
+              <option value="completado">Completado</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+            <label for="newStatus">Nuevo Estado</label>
+          </div>
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="statusNotes" name="notas" placeholder="Notas adicionales..."></textarea>
+            <label for="statusNotes">Notas (opcional)</label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirmStatusChange">Cambiar Estado</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Template para mostrar detalles del requerimiento -->
+<script type="text/template" id="requirement-details-template">
+  <div class="modal-body">
+  <div class="row">
+    <div class="col-md-6">
+      <h6 class="mb-3">Información General</h6>
+      <table class="table table-borderless">
+        <tr>
+          <td><strong>Número:</strong></td>
+          <td id="detail-numero"></td>
+        </tr>
+        <tr>
+          <td><strong>Solicitante:</strong></td>
+          <td id="detail-solicitante"></td>
+        </tr>
+        <tr>
+          <td><strong>Fecha Requerida:</strong></td>
+          <td id="detail-fecha"></td>
+        </tr>
+        <tr>
+          <td><strong>Prioridad:</strong></td>
+          <td id="detail-prioridad"></td>
+        </tr>
+        <tr>
+          <td><strong>Estado:</strong></td>
+          <td id="detail-estado"></td>
+        </tr>
+        <tr>
+          <td><strong>Creado:</strong></td>
+          <td id="detail-creado"></td>
+        </tr>
+      </table>
+    </div>
+    <div class="col-md-6">
+      <h6 class="mb-3">Resumen</h6>
+      <table class="table table-borderless">
+        <tr>
+          <td><strong>Total Productos:</strong></td>
+          <td id="detail-total-productos"></td>
+        </tr>
+        <tr>
+          <td><strong>Cantidad Total:</strong></td>
+          <td id="detail-cantidad-total"></td>
+        </tr>
+        <tr>
+          <td><strong>Archivo Adjunto:</strong></td>
+          <td id="detail-archivo"></td>
+        </tr>
+        <tr>
+          <td><strong>Detalles:</strong></td>
+          <td id="detail-notas"></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  
+  <hr class="my-4">
+  
+  <h6 class="mb-3">Productos Solicitados</h6>
+  <div id="productos-container"></div>
+</div>
+</script>
+{% endblock %}

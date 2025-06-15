@@ -1,0 +1,276 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Lista de Proveedores{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-checkboxes-jquery/datatables.checkboxes.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/app-suppliers-analytics.js' %}"></script>
+<script src="{% static 'js/app-suppliers-list.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Suppliers List Widget -->
+<div class="card mb-6">
+  <div class="card-widget-separator-wrapper">
+    <div class="card-body card-widget-separator">
+      <div class="row gy-4 gy-sm-1" id="suppliersStats">
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Total Proveedores</p>
+              <h4 class="mb-1" id="totalSuppliers">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="activeSuppliers">0 activos</span>
+                <span class="badge rounded-pill bg-label-info" id="suppliersTrend">+0%</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                🏪
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none me-6">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Proveedores Preferidos</p>
+              <h4 class="mb-1" id="preferredSuppliers">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="preferredPercentage">0%</span>
+                <span class="badge rounded-pill bg-label-success" id="preferredTrend">⭐</span>
+              </p>
+            </div>
+            <div class="avatar me-lg-6">
+              <span class="avatar-initial rounded text-heading">
+                ⭐
+              </span>
+            </div>
+          </div>
+          <hr class="d-none d-sm-block d-lg-none">
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+            <div>
+              <p class="mb-1">Límite de Crédito</p>
+              <h4 class="mb-1" id="totalCreditLimit">S/. 0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="creditText">Total disponible</span>
+                <span class="badge rounded-pill bg-label-warning" id="creditTrend">💳</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-money-dollar-circle-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <p class="mb-1">Calificación Promedio</p>
+              <h4 class="mb-1" id="averageRating">0.0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="ratingStars">☆☆☆☆☆</span>
+                <span class="badge rounded-pill bg-label-success" id="ratingTrend">📊</span>
+              </p>
+            </div>
+            <div class="avatar">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-star-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Suppliers List Table -->
+<div class="card">
+  <div class="card-header">
+    <h5 class="card-title mb-4">Filtros</h5>
+    <div class="d-flex justify-content-between align-items-center row gap-5 gx-6 gap-md-0">
+      <div class="col-md-3 supplier_status"></div>
+      <div class="col-md-3 supplier_category"></div>
+      <div class="col-md-3 supplier_rating"></div>
+      <div class="col-md-3 supplier_search">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="supplierSearch" placeholder="Buscar proveedores..." />
+          <label for="supplierSearch">Buscar</label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-datatable table-responsive">
+    <table class="datatables-suppliers table">
+      <thead>
+        <tr>
+          <th></th> <!-- Control responsive -->
+          <th></th> <!-- Checkboxes -->
+          <th>Proveedor</th>
+          <th>Contacto</th>
+          <th>Email</th>
+          <th>Teléfono</th>
+          <th>Ciudad</th>
+          <th>Categoría</th>
+          <th>Calificación</th>
+          <th>Estado</th>
+          <th>Límite Crédito</th>
+          <th>Fecha Registro</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+<!-- Offcanvas para agregar/editar proveedor -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasSupplierAdd" aria-labelledby="offcanvasSupplierAddLabel">
+  <div class="offcanvas-header">
+    <h5 id="offcanvasSupplierAddLabel" class="offcanvas-title">Agregar Proveedor</h5>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body mx-0 flex-grow-0 p-6 h-100">
+    <form class="add-new-supplier pt-0" id="addSupplierForm">
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-company-name" placeholder="Nombre de la empresa" name="company_name" />
+        <label for="supplier-company-name">Nombre de la Empresa *</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-legal-name" placeholder="Razón social" name="legal_name" />
+        <label for="supplier-legal-name">Razón Social</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-tax-id" placeholder="RUC/NIT" name="tax_id" />
+        <label for="supplier-tax-id">RUC/NIT *</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-contact-person" placeholder="Persona de contacto" name="contact_person" />
+        <label for="supplier-contact-person">Persona de Contacto *</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="email" class="form-control" id="supplier-email" placeholder="email@ejemplo.com" name="email" />
+        <label for="supplier-email">Email</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="tel" class="form-control" id="supplier-phone-primary" placeholder="+51999999999" name="phone_primary" />
+        <label for="supplier-phone-primary">Teléfono Principal *</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="tel" class="form-control" id="supplier-phone-secondary" placeholder="+51999999999" name="phone_secondary" />
+        <label for="supplier-phone-secondary">Teléfono Secundario</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="url" class="form-control" id="supplier-website" placeholder="https://www.ejemplo.com" name="website" />
+        <label for="supplier-website">Sitio Web</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-address" placeholder="Dirección" name="address_line1" />
+        <label for="supplier-address">Dirección *</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-city" placeholder="Ciudad" name="city" />
+        <label for="supplier-city">Ciudad *</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-state" placeholder="Departamento" name="state" />
+        <label for="supplier-state">Departamento *</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <select id="supplier-category" class="form-select" name="category">
+          <option value="products">Productos</option>
+          <option value="services">Servicios</option>
+          <option value="materials">Materiales</option>
+          <option value="equipment">Equipos</option>
+          <option value="logistics">Logística</option>
+          <option value="other">Otros</option>
+        </select>
+        <label for="supplier-category">Categoría</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="text" class="form-control" id="supplier-payment-terms" placeholder="30 días" name="payment_terms" />
+        <label for="supplier-payment-terms">Términos de Pago</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <input type="number" step="0.01" class="form-control" id="supplier-credit-limit" placeholder="0.00" name="credit_limit" />
+        <label for="supplier-credit-limit">Límite de Crédito</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <select id="supplier-rating" class="form-select" name="rating">
+          <option value="1">⭐ - Muy Malo</option>
+          <option value="2">⭐⭐ - Malo</option>
+          <option value="3" selected>⭐⭐⭐ - Regular</option>
+          <option value="4">⭐⭐⭐⭐ - Bueno</option>
+          <option value="5">⭐⭐⭐⭐⭐ - Excelente</option>
+        </select>
+        <label for="supplier-rating">Calificación</label>
+      </div>
+      
+      <div class="form-floating form-floating-outline mb-5">
+        <textarea class="form-control h-px-100" id="supplier-notes" placeholder="Notas adicionales..." name="notes"></textarea>
+        <label for="supplier-notes">Notas</label>
+      </div>
+      
+      <div class="form-check mb-5">
+        <input class="form-check-input" type="checkbox" value="" id="supplier-is-active" name="is_active" checked />
+        <label class="form-check-label" for="supplier-is-active">
+          Proveedor Activo
+        </label>
+      </div>
+      
+      <div class="form-check mb-5">
+        <input class="form-check-input" type="checkbox" value="" id="supplier-is-preferred" name="is_preferred" />
+        <label class="form-check-label" for="supplier-is-preferred">
+          Proveedor Preferido
+        </label>
+      </div>
+      
+      <button type="submit" class="btn btn-primary me-sm-3 me-1 data-submit">Agregar</button>
+      <button type="reset" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

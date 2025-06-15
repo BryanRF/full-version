@@ -1,0 +1,284 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Agregar Requerimiento{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/requirements-add-form.js' %}"></script>
+<script src="{% static 'js/requirements-product-selector.js' %}"></script>
+<script src="{% static 'js/requirements-add-validation.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-requirements-add">
+  <!-- Header -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-6 row-gap-4">
+    <div class="d-flex flex-column justify-content-center">
+      <h4 class="mb-1">Crear Nuevo Requerimiento</h4>
+      <p class="mb-0">Solicitar productos para la empresa</p>
+    </div>
+    <div class="d-flex align-content-center flex-wrap gap-4">
+      <a href="/app/requirements/list/" class="btn btn-outline-secondary">Cancelar</a>
+      <button type="button" class="btn btn-primary" id="saveRequirement">Crear Requerimiento</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Información del Requerimiento -->
+    <div class="col-12 col-lg-8">
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Información del Requerimiento</h5>
+        </div>
+        <div class="card-body">
+          <form id="requirementForm">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-floating form-floating-outline mb-5">
+                  <input type="date" class="form-control" id="fechaRequerimiento" name="fecha_requerimiento" required>
+                  <label for="fechaRequerimiento">Fecha Requerida *</label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating form-floating-outline mb-5">
+                  <select id="prioridad" class="form-select" name="prioridad" required>
+                    <option value="baja">🟢 Baja</option>
+                    <option value="media" selected>🟡 Media</option>
+                    <option value="alta">🔴 Alta</option>
+                  </select>
+                  <label for="prioridad">Prioridad</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-floating form-floating-outline mb-5">
+              <textarea class="form-control h-px-100" id="notas" name="notas" placeholder="Notas adicionales..."></textarea>
+              <label for="notas">Notas y Observaciones</label>
+            </div>
+
+            <div class="mb-5">
+              <label for="archivoAdjunto" class="form-label">Archivo Adjunto</label>
+              <input class="form-control" type="file" id="archivoAdjunto" name="archivo_adjunto" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
+              <div class="form-text">Formatos permitidos: PDF, DOC, XLS, JPG, PNG (Max: 10MB)</div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Productos Solicitados -->
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Productos Solicitados</h5>
+          <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#productSelectorModal">
+            <i class="ri-add-line me-1"></i>Agregar Productos
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered" id="selectedProductsTable">
+              <thead>
+                <tr>
+                  <th width="5%">#</th>
+                  <th width="35%">Producto</th>
+                  <th width="15%">Cantidad</th>
+                  <th width="15%">Unidad</th>
+                  <th width="10%">Stock</th>
+                  <th width="15%">Observaciones</th>
+                  <th width="5%">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="selectedProductsBody">
+                <tr id="emptyProductsRow">
+                  <td colspan="7" class="text-center text-muted py-4">
+                    <i class="ri-shopping-cart-line ri-48px mb-2 d-block"></i>
+                    No hay productos seleccionados
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel Lateral -->
+    <div class="col-12 col-lg-4">
+      <!-- Resumen -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Resumen</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <span>Total Productos:</span>
+            <span class="fw-medium" id="totalProductos">0</span>
+          </div>
+          <div class="d-flex justify-content-between mb-3">
+            <span>Cantidad Total:</span>
+            <span class="fw-medium" id="cantidadTotal">0</span>
+          </div>
+          <div class="d-flex justify-content-between mb-3">
+            <span>Prioridad:</span>
+            <span class="badge" id="prioridadBadge">🟡 Media</span>
+          </div>
+          <hr>
+          <div class="d-flex justify-content-between">
+            <span>Estado:</span>
+            <span class="badge bg-label-warning">Borrador</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Validaciones -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Validaciones</h5>
+        </div>
+        <div class="card-body">
+          <div class="validation-item mb-3" id="validationFecha">
+            <div class="d-flex align-items-center">
+              <i class="ri-calendar-line me-2 text-muted"></i>
+              <span>Fecha requerida</span>
+              <i class="ri-close-circle-line ms-auto text-danger" id="fechaIcon"></i>
+            </div>
+          </div>
+          <div class="validation-item mb-3" id="validationProductos">
+            <div class="d-flex align-items-center">
+              <i class="ri-shopping-cart-line me-2 text-muted"></i>
+              <span>Al menos 1 producto</span>
+              <i class="ri-close-circle-line ms-auto text-danger" id="productosIcon"></i>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- Ayuda -->
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title">💡 Consejos</h6>
+          <ul class="list-unstyled mb-0">
+            <li class="mb-2">
+              <small class="text-muted">
+                <i class="ri-information-line me-1"></i>
+                Selecciona una fecha realista para el requerimiento
+              </small>
+            </li>
+           
+            <li>
+              <small class="text-muted">
+                <i class="ri-information-line me-1"></i>
+                Agrega observaciones específicas por producto
+              </small>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Selector de Productos -->
+<div class="modal fade" id="productSelectorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Productos</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Filtros -->
+        <div class="row mb-4">
+          <div class="col-md-4">
+            <div class="form-floating form-floating-outline">
+              <select id="filterCategory" class="form-select">
+                <option value="">Todas las categorías</option>
+              </select>
+              <label for="filterCategory">Categoría</label>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-floating form-floating-outline">
+              <select id="filterStock" class="form-select">
+                <option value="">Todo el stock</option>
+                <option value="available">Con stock</option>
+                <option value="low">Stock bajo</option>
+                <option value="out">Sin stock</option>
+              </select>
+              <label for="filterStock">Estado Stock</label>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-floating form-floating-outline">
+              <input type="text" class="form-control" id="searchProduct" placeholder="Buscar productos...">
+              <label for="searchProduct">Buscar</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de productos -->
+        <div class="table-responsive">
+          <table class="table table-hover" id="productsTable">
+            <thead>
+              <tr>
+                <th width="5%">
+                  <input type="checkbox" class="form-check-input" id="selectAllProducts">
+                </th>
+                <th width="35%">Producto</th>
+                <th width="15%">Categoría</th>
+                <th width="10%">Stock</th>
+                <th width="10%">Precio</th>
+                <th width="15%">Cantidad</th>
+                <th width="10%">Unidad</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody">
+              <!-- Se carga dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="me-auto">
+          <span id="selectedCount">0</span> productos seleccionados
+        </span>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="addSelectedProducts">Agregar Seleccionados</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div>Guardando requerimiento...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

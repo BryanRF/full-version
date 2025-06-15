@@ -1,0 +1,307 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}eCommerce Add Product - Apps{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/quill/typography.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/quill/katex.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/quill/editor.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/dropzone/dropzone.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/tagify/tagify.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/quill/katex.js' %}"></script>
+<script src="{% static 'vendor/libs/quill/quill.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/dropzone/dropzone.js' %}"></script>
+<script src="{% static 'vendor/libs/jquery-repeater/jquery-repeater.js' %}"></script>
+<script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+<script src="{% static 'vendor/libs/tagify/tagify.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/app-ecommerce-products-add.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-ecommerce">
+  <!-- Add Product -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-6 row-gap-4">
+
+    <div class="d-flex flex-column justify-content-center">
+      <h4 class="mb-1">Agregar un nuevo Producto</h4>
+      <p class="mb-0">Pedidos realizados en tu tienda</p>
+    </div>
+    <div class="d-flex align-content-center flex-wrap gap-4">
+      <a href="/app/ecommerce/product/list/" class="btn btn-outline-secondary">Descartar</a>
+      <button type="submit" class="btn btn-primary">Guardar producto</button>
+    </div>
+  </div>
+
+  <div class="row">
+
+    <!-- First column-->
+    <div class="col-12 col-lg-8">
+      <!-- Product Information -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-tile mb-0">Información del producto</h5>
+        </div>
+        <div class="card-body">
+          <div class="form-floating form-floating-outline mb-5">
+            <input type="text" class="form-control" id="ecommerce-product-name" placeholder="Título del producto" name="productTitle" aria-label="Product title">
+            <label for="ecommerce-product-name">Nombre</label>
+          </div>
+
+       
+          <!-- Comment -->
+          <div>
+            <p class="mb-1">Descripción (Opcional)</p>
+            <div class="form-control p-0 pt-1">
+              <div class="comment-toolbar border-0 border-bottom">
+                <div class="d-flex justify-content-start">
+                  <span class="ql-formats me-0">
+                    <button class="ql-bold"></button>
+                    <button class="ql-italic"></button>
+                    <button class="ql-underline"></button>
+                    <button class="ql-list" value="ordered"></button>
+                    <button class="ql-list" value="bullet"></button>
+                    <button class="ql-link"></button>
+                    <button class="ql-image"></button>
+                  </span>
+                </div>
+              </div>
+              <div class="comment-editor border-0 pb-1" id="ecommerce-category-description">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /Product Information -->
+      
+      <!-- Media -->
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 card-title">Imagen del Producto</h5>
+          <input class="form-control" type="file" id="ecommerce-category-image" accept="image/*">
+
+        </div>
+      </div>
+      <!-- /Media -->
+      <!-- Inventory -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Inventario</h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <!-- Navigation -->
+            <div class="col-12 col-md-4 mx-auto card-separator">
+              <div class="nav-align-left d-flex justify-content-between flex-column mb-4 mb-md-0 pe-md-3">
+                <ul class="nav nav-pills flex-column">
+                  <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#restock">
+                      <i class="ri-add-line me-2"></i>
+                      <span class="align-middle">Stock</span>
+                    </button>
+                  </li>
+                 
+                  <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#attributes">
+                      <i class="ri-link-m me-2"></i>
+                      <span class="align-middle">Atributos</span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <!-- /Navigation -->
+            
+            <!-- Options -->
+            <div class="col-12 col-md-8 pt-6 pt-md-0">
+              <div class="tab-content p-0 pe-xl-0 ps-md-4">
+                <!-- Stock Tab -->
+                <div class="tab-pane fade show active" id="restock" role="tabpanel">
+                  <h6 class="text-body">Gestión de Stock</h6>
+                  <div class="row mb-4 g-4">
+                    <div class="col-12">
+                      <div class="form-floating form-floating-outline mb-4">
+                        <input type="number" class="form-control" id="ecommerce-product-stock" placeholder="Cantidad actual" name="currentStock" aria-label="Current Stock" min="0">
+                        <label for="ecommerce-product-stock">Stock Actual</label>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="form-floating form-floating-outline">
+                        <input type="number" class="form-control" id="ecommerce-product-stock-min" placeholder="Stock mínimo" name="minStock" aria-label="Minimum Stock" min="0">
+                        <label for="ecommerce-product-stock-min">Stock Mínimo</label>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="form-floating form-floating-outline">
+                        <input type="number" class="form-control" id="ecommerce-product-stock-max" placeholder="Stock máximo" name="maxStock" aria-label="Maximum Stock" min="1">
+                        <label for="ecommerce-product-stock-max">Stock Máximo</label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row g-4">
+                    <div class="col-6">
+                      <div class="form-floating form-floating-outline">
+                        <input type="number" step="0.01" class="form-control" id="product-weight" placeholder="Peso en kg" name="weight" aria-label="Weight">
+                        <label for="product-weight">Peso (kg)</label>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="form-floating form-floating-outline">
+                        <input type="text" class="form-control" id="product-dimensions" placeholder="20x30x10 cm" name="dimensions" aria-label="Dimensions">
+                        <label for="product-dimensions">Dimensiones</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+             
+                
+             
+                
+                <!-- Attributes Tab -->
+                <div class="tab-pane fade" id="attributes" role="tabpanel">
+                  <h6 class="mb-2 text-body">Atributos</h6>
+                  <div>
+                    <div class="form-check mb-4">
+                      <input class="form-check-input" type="checkbox" value="fragile" id="fragile">
+                      <label class="form-check-label" for="fragile">
+                        <span>Producto Frágil</span>
+                      </label>
+                    </div>
+                    <div class="form-check mb-4">
+                      <input class="form-check-input" type="checkbox" value="biodegradable" id="biodegradable">
+                      <label class="form-check-label" for="biodegradable">
+                        <span>Biodegradable</span>
+                      </label>
+                    </div>
+                    <div class="form-check mb-4">
+                      <input class="form-check-input" type="checkbox" id="frozen" value="frozen">
+                      <label class="form-check-label w-75 pe-12 mb-3" for="frozen">
+                        <span class="mb-1">Producto Congelado</span>
+                      </label>
+                      <div class="form-floating form-floating-outline">
+                        <input type="number" class="form-control" placeholder="En Celsius" id="temp" step="0.1">
+                        <label for="temp">Temperatura máxima permitida</label>
+                      </div>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="expDate" id="expDate">
+                      <label class="form-check-label w-75 pe-12 mb-3" for="expDate">
+                        <span class="mb-1">Fecha de Vencimiento</span>
+                      </label>
+                      <div class="form-floating form-floating-outline">
+                        <input type="date" class="product-date form-control" id="flatpickr-date" />
+                        <label for="flatpickr-date">Fecha de vencimiento</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Advanced Tab -->
+              
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /Inventory -->
+    </div>
+    <!-- /First column -->
+
+    <!-- Second column -->
+    <div class="col-12 col-lg-4">
+      <!-- Pricing Card -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Precios</h5>
+        </div>
+        <div class="card-body">
+          <!-- Base Price -->
+          <div class="form-floating form-floating-outline mb-5">
+            <input type="number" step="0.01" class="form-control" id="ecommerce-product-price" placeholder="Precio" name="productPrice" aria-label="Product price" min="0">
+            <label for="ecommerce-product-price">Precio Regular</label>
+          </div>
+
+          <!-- Discounted Price -->
+          <div class="form-floating form-floating-outline mb-5">
+            <input type="number" step="0.01" class="form-control" id="ecommerce-product-discount-price" placeholder="Precio con descuento" name="productDiscountedPrice" aria-label="Product discounted price" min="0">
+            <label for="ecommerce-product-discount-price">Precio con Descuento</label>
+          </div>
+          
+          <!-- Charge tax check box -->
+          <div class="form-check m-2 me-0 pb-2">
+            <input class="form-check-input" type="checkbox" value="" id="price-charge-tax" checked>
+            <label class="form-check-label" for="price-charge-tax">
+              Cobrar impuesto en este producto
+            </label>
+          </div>
+          
+          <!-- Instock switch -->
+          <div class="d-flex justify-content-between align-items-center border-top pt-4">
+            <p class="mb-0">En stock (Inactivo - Activo)</p>
+            <div class="w-25 d-flex justify-content-end">
+              <div class="form-check form-switch me-n3 mb-0">
+                <input type="checkbox" class="form-check-input" id="is-active" checked />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /Pricing Card -->
+      
+      <!-- Organize Card -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Organizar</h5>
+        </div>
+        <div class="card-body">
+         
+          
+          <!-- Category -->
+          <div class="mb-5 col ecommerce-select2-dropdown d-flex justify-content-between align-items-center">
+            <div class="form-floating form-floating-outline w-100 me-4">
+              <select id="category-org" class="select2 form-select" data-placeholder="Seleccionar Categoría">
+                <option value="">Seleccionar Categoría</option>
+              </select>
+              <label for="category-org">Categoría</label>
+            </div>
+            <div>
+              <a href="/app/ecommerce/product/category/" class="btn btn-outline-primary btn-icon btn-lg" title="Gestionar Categorías">
+                <i class="ri-add-line"></i>
+              </a>
+            </div>
+          </div>
+          
+          <!-- Tags -->
+          <div>
+            <div class="form-floating form-floating-outline">
+              <input id="ecommerce-product-tags" class="form-control h-auto" name="ecommerce-product-tags" value="" aria-label="Product Tags" placeholder="Agregar etiquetas..." />
+              <label for="ecommerce-product-tags">Etiquetas</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /Organize Card -->
+    </div>
+    <!-- /Second column -->
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,321 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Notificaciones{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/notifications-list.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Notifications Statistics -->
+<div class="row mb-6">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-border-shadow-primary h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="avatar me-4">
+            <span class="avatar-initial rounded bg-label-primary">
+              <i class="ri-notification-2-line ri-24px"></i>
+            </span>
+          </div>
+          <h4 class="mb-0" id="totalNotifications">{{ total_notificaciones|default:0 }}</h4>
+        </div>
+        <p class="mb-0">Total de Notificaciones</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-border-shadow-warning h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="avatar me-4">
+            <span class="avatar-initial rounded bg-label-warning">
+              <i class="ri-notification-badge-line ri-24px"></i>
+            </span>
+          </div>
+          <h4 class="mb-0" id="unreadNotifications">{{ no_leidas|default:0 }}</h4>
+        </div>
+        <p class="mb-0">No Leídas</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-border-shadow-success h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="avatar me-4">
+            <span class="avatar-initial rounded bg-label-success">
+              <i class="ri-check-double-line ri-24px"></i>
+            </span>
+          </div>
+          <!-- CORREGIDO: Usar cálculo correcto -->
+          <h4 class="mb-0" id="readNotifications">{% widthratio total_notificaciones 1 1 %}{% widthratio no_leidas 1 -1 %}{{ leidas|default:0 }}</h4>
+        </div>
+        <p class="mb-0">Leídas</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-border-shadow-info h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="avatar me-4">
+            <span class="avatar-initial rounded bg-label-info">
+              <i class="ri-time-line ri-24px"></i>
+            </span>
+          </div>
+          <h4 class="mb-0" id="todayNotifications">0</h4>
+        </div>
+        <p class="mb-0">Notificaciones de Hoy</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notifications List -->
+<div class="card">
+  <div class="card-header">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">Mis Notificaciones</h5>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="NotificationsPage.refreshNotifications()">
+          <i class="ri-refresh-line me-1"></i>Actualizar
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="NotificationsPage.markAllAsRead()" id="markAllReadBtn">
+          <i class="ri-check-double-line me-1"></i>Marcar Todas como Leídas
+        </button>
+      </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="d-flex justify-content-between align-items-center row gap-4 gx-6 gap-md-0 mt-4">
+      <div class="col-md-3">
+        <div class="form-floating form-floating-outline">
+          <select class="form-select" id="statusFilter">
+            <option value="">Todas</option>
+            <option value="unread">No Leídas</option>
+            <option value="read">Leídas</option>
+          </select>
+          <label for="statusFilter">Estado</label>
+        </div>
+      </div>
+      
+      <div class="col-md-3">
+        <div class="form-floating form-floating-outline">
+          <select class="form-select" id="typeFilter">
+            <option value="">Todos los tipos</option>
+            <!-- CORREGIDO: Agregar opciones por defecto si no hay contexto -->
+            {% if tipos_notificacion %}
+              {% for tipo_choice in tipos_notificacion %}
+              <option value="{{ tipo_choice.0 }}">{{ tipo_choice.1 }}</option>
+              {% endfor %}
+            {% else %}
+              <option value="ALERTA_STOCK">Alerta de Stock</option>
+              <option value="APROBACION_PENDIENTE">Aprobación Pendiente</option>
+              <option value="ESTADO_PEDIDO">Estado de Pedido</option>
+              <option value="PRODUCTO_ACTUALIZADO">Producto Actualizado</option>
+              <option value="CATEGORIA_NUEVA">Nueva Categoría</option>
+              <option value="SISTEMA">Sistema</option>
+            {% endif %}
+          </select>
+          <label for="typeFilter">Tipo</label>
+        </div>
+      </div>
+      
+      <div class="col-md-4">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="searchFilter" placeholder="Buscar en título o mensaje...">
+          <label for="searchFilter">Buscar</label>
+        </div>
+      </div>
+      
+      <div class="col-md-2">
+        <button class="btn btn-outline-secondary w-100" id="clearFiltersBtn" style="height: 56px;">
+          <i class="ri-refresh-line"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card-datatable table-responsive">
+    <table class="datatables-notifications table">
+      <thead>
+        <tr>
+          <th></th>
+          <th></th>
+          <th>Tipo</th>
+          <th>Título</th>
+          <th>Mensaje</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+<!-- Notification Details Modal -->
+<div class="modal fade" id="notificationDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalles de la Notificación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="notificationDetailsContent">
+          <!-- Content will be loaded dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <div id="notificationActionsButtons">
+          <!-- Action buttons will be added dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Status Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1055;">
+  <div class="toast align-items-center text-white bg-success border-0" id="connectionToast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">
+        <i class="ri-wifi-line me-2"></i>
+        <span id="connectionStatus">Conectado a notificaciones en tiempo real</span>
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions Offcanvas -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="notificationActions">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title">Acciones Rápidas</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="d-grid gap-3">
+      <button type="button" class="btn btn-outline-primary" onclick="NotificationsPage.markAllAsRead()">
+        <i class="ri-check-double-line me-2"></i>
+        Marcar Todas como Leídas
+      </button>
+      
+      <button type="button" class="btn btn-outline-info" onclick="NotificationsPage.showOnlyUnread()">
+        <i class="ri-eye-line me-2"></i>
+        Ver Solo No Leídas
+      </button>
+      
+      <button type="button" class="btn btn-outline-success" onclick="NotificationsPage.exportNotifications()">
+        <i class="ri-download-line me-2"></i>
+        Exportar Historial
+      </button>
+      
+      <hr>
+      
+      <h6>Configuración</h6>
+      
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="soundNotifications" checked>
+        <label class="form-check-label" for="soundNotifications">
+          Sonido en Notificaciones
+        </label>
+      </div>
+      
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="browserNotifications" checked>
+        <label class="form-check-label" for="browserNotifications">
+          Notificaciones del Navegador
+        </label>
+      </div>
+      
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="emailNotifications">
+        <label class="form-check-label" for="emailNotifications">
+          Notificaciones por Email
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB Button -->
+<div class="buy-now">
+  <button type="button" class="btn btn-primary btn-buy-now" data-bs-toggle="offcanvas" data-bs-target="#notificationActions">
+    <i class="ri-settings-3-line"></i>
+  </button>
+</div>
+
+<style>
+.notification-item {
+  transition: all 0.3s ease;
+}
+
+.notification-item:hover {
+  background-color: var(--bs-gray-50);
+  border-left: 4px solid var(--bs-primary);
+}
+
+.notification-item.unread {
+  background-color: var(--bs-primary-bg-subtle);
+  border-left: 4px solid var(--bs-primary);
+}
+
+.notification-item.unread .notification-dot {
+  background-color: var(--bs-primary);
+}
+
+.notification-actions {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.notification-item:hover .notification-actions {
+  opacity: 1;
+}
+
+.btn-buy-now {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.notification-connection-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1001;
+}
+</style>
+{% endblock %}

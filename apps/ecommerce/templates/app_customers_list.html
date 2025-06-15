@@ -1,0 +1,272 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Lista de Clientes{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/customers-list.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Customers Analytics -->
+<div class="card mb-6">
+  <div class="card-widget-separator-wrapper">
+    <div class="card-body card-widget-separator">
+      <div class="row gy-4 gy-sm-1" id="customerStats">
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Total Clientes</p>
+              <h4 class="mb-1" id="totalCustomers">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="activeCustomers">0 activos</span>
+                <span class="badge rounded-pill bg-label-success">👥</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-user-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Frecuentes</p>
+              <h4 class="mb-1" id="frequentCustomers">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="frequentPercentage">0%</span>
+                <span class="badge rounded-pill bg-label-warning">⭐</span>
+              </p>
+            </div>
+            <div class="avatar me-lg-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-star-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+            <div>
+              <p class="mb-1">Con Ventas</p>
+              <h4 class="mb-1" id="customersWithSales">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="conversionRate">0%</span>
+                <span class="badge rounded-pill bg-label-info">💰</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-shopping-bag-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <p class="mb-1">Nuevos (7d)</p>
+              <h4 class="mb-1" id="newCustomers">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="newCustomersText">Esta semana</span>
+                <span class="badge rounded-pill bg-label-primary">🆕</span>
+              </p>
+            </div>
+            <div class="avatar">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-user-add-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Customers List Table -->
+<div class="card">
+  <div class="card-header">
+    <h5 class="card-title mb-4">Filtros</h5>
+    <div class="d-flex justify-content-between align-items-center row gap-5 gx-6 gap-md-0">
+      <div class="col-md-2 customer_status"></div>
+      <div class="col-md-2 customer_type"></div>
+      <div class="col-md-2 document_type"></div>
+      <div class="col-md-4 customer_search">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="customerSearch" placeholder="Buscar..." />
+          <label for="customerSearch">Buscar Cliente</label>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+          <i class="ri-add-line me-1"></i>Agregar
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="card-datatable table-responsive">
+    <table class="datatables-customers table">
+      <thead>
+        <tr>
+          <th></th>
+          <th></th>
+          <th>Cliente</th>
+          <th>Documento</th>
+          <th>Contacto</th>
+          <th>Ubicación</th>
+          <th>Ventas</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+<!-- Add Customer Modal -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agregar Cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="nav-align-top">
+          <ul class="nav nav-pills mb-4" role="tablist">
+            <li class="nav-item">
+              <button type="button" class="nav-link active" data-bs-toggle="tab" data-bs-target="#navs-api">
+                <i class="ri-search-line me-1"></i>Desde API
+              </button>
+            </li>
+            <li class="nav-item">
+              <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#navs-manual">
+                <i class="ri-edit-line me-1"></i>Manual
+              </button>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <!-- API Tab -->
+            <div class="tab-pane fade show active" id="navs-api">
+              <form id="apiCustomerForm">
+                <div class="row">
+                  <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select" id="apiDocType">
+                      <option value="1">DNI</option>
+                      <option value="6">RUC</option>
+                      <option value="4">C.E.</option>
+                      <option value="7">Pasaporte</option>
+                    </select>
+                  </div>
+                  <div class="col-md-9">
+                    <label class="form-label">Número de Documento</label>
+                    <div class="input-group">
+                      <input type="text" class="form-control" id="apiDocNumber" required>
+                      <button type="button" class="btn btn-primary" id="searchApiBtn">
+                        <i class="ri-search-line"></i> Buscar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div id="apiResults" class="mt-4" style="display: none;">
+                  <!-- Results will be shown here -->
+                </div>
+              </form>
+            </div>
+            
+            <!-- Manual Tab -->
+            <div class="tab-pane fade" id="navs-manual">
+              <form id="manualCustomerForm">
+                <div class="row">
+                  <div class="col-md-3">
+                    <label class="form-label">Tipo Doc.</label>
+                    <select class="form-select" name="document_type">
+                      <option value="1">DNI</option>
+                      <option value="6">RUC</option>
+                      <option value="4">C.E.</option>
+                      <option value="7">Pasaporte</option>
+                    </select>
+                  </div>
+                  <div class="col-md-9">
+                    <label class="form-label">Número</label>
+                    <input type="text" class="form-control" name="document_number" required>
+                  </div>
+                </div>
+                
+                <div class="row mt-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Nombres/Razón Social</label>
+                    <input type="text" class="form-control" name="first_name" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Apellidos</label>
+                    <input type="text" class="form-control" name="last_name">
+                  </div>
+                </div>
+                
+                <div class="row mt-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" name="email">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" class="form-control" name="phone">
+                  </div>
+                </div>
+                
+                <div class="mt-3">
+                  <label class="form-label">Dirección</label>
+                  <textarea class="form-control" name="address" rows="2"></textarea>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="saveCustomerBtn">Guardar Cliente</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Procesando...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

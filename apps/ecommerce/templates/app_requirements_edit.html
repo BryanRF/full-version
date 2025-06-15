@@ -1,0 +1,1521 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Editar Requerimiento{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/requirements-edit-form.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="app-requirements-edit">
+  <!-- Header -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-6 row-gap-4">
+    <div class="d-flex flex-column justify-content-center">
+      <h4 class="mb-1">Editar Requerimiento <span id="requirementNumber" class="text-primary"></span></h4>
+      <p class="mb-0">Modificar productos y detalles del requerimiento</p>
+    </div>
+    <div class="d-flex align-content-center flex-wrap gap-4">
+      <a href="/app/requirements/list/" class="btn btn-outline-secondary">
+        <i class="ri-arrow-left-line me-1"></i>Cancelar
+      </a>
+      <button type="button" class="btn btn-primary" id="saveRequirement">
+        <i class="ri-save-line me-1"></i>Guardar Cambios
+      </button>
+    </div>
+  </div>
+
+  <!-- Alert de estado -->
+  <div class="alert alert-info d-none" id="editAlert">
+    <div class="alert-body">
+      <i class="ri-information-line me-2"></i>
+      <span id="editAlertText"></span>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Información del Requerimiento -->
+    <div class="col-12 col-lg-8">
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">
+            <i class="ri-file-edit-line me-2"></i>Información del Requerimiento
+          </h5>
+          <div class="badge" id="statusBadge"></div>
+        </div>
+        <div class="card-body">
+          <form id="requirementEditForm">
+            <input type="hidden" id="requirementId" name="requirement_id">
+            
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-floating form-floating-outline mb-5">
+                  <input type="date" class="form-control" id="fechaRequerimiento" name="fecha_requerimiento" required>
+                  <label for="fechaRequerimiento">
+                    <i class="ri-calendar-line me-1"></i>Fecha Requerida *
+                  </label>
+                  <div class="form-text">La fecha no puede ser anterior a hoy</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating form-floating-outline mb-5">
+                  <select id="prioridad" class="form-select" name="prioridad" required>
+                    <option value="baja">🟢 Baja</option>
+                    <option value="media">🟡 Media</option>
+                    <option value="alta">🔴 Alta</option>
+                  </select>
+                  <label for="prioridad">
+                    <i class="ri-flag-line me-1"></i>Prioridad
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-floating form-floating-outline mb-5">
+              <textarea class="form-control h-px-100" id="notas" name="notas" placeholder="Notas adicionales..."></textarea>
+              <label for="notas">
+                <i class="ri-sticky-note-line me-1"></i>Notas y Observaciones
+              </label>
+              <div class="form-text">Información adicional sobre el requerimiento</div>
+            </div>
+
+            <!-- Archivo adjunto -->
+            <div class="mb-5">
+              <label class="form-label">
+                <i class="ri-attachment-line me-1"></i>Archivo Adjunto
+              </label>
+              
+              <!-- Archivo actual -->
+              <div id="currentFileContainer" class="mb-3 d-none">
+                <div class="d-flex align-items-center justify-content-between p-3 border rounded bg-light">
+                  <div class="d-flex align-items-center">
+                    <i class="ri-file-line me-2 text-primary ri-24px"></i>
+                    <div>
+                      <div class="fw-medium" id="currentFileName">archivo.pdf</div>
+                      <small class="text-muted" id="currentFileSize">2.5 MB</small>
+                    </div>
+                  </div>
+                  <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-primary" id="downloadCurrentFile" title="Descargar">
+                      <i class="ri-download-line"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" id="deleteCurrentFile" title="Eliminar">
+                      <i class="ri-delete-bin-line"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Subir nuevo archivo -->
+              <div class="input-group">
+                <input class="form-control" type="file" id="archivoAdjunto" name="archivo_adjunto" 
+                       accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
+                <button class="btn btn-outline-secondary" type="button" id="clearFileBtn">
+                  <i class="ri-close-line"></i>
+                </button>
+              </div>
+              <div class="form-text">
+                <i class="ri-information-line me-1"></i>
+                Formatos permitidos: PDF, DOC, XLS, JPG, PNG (Máximo: 10MB)
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Productos Solicitados -->
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">
+            <i class="ri-shopping-cart-line me-2"></i>Productos Solicitados
+            <span class="badge bg-label-primary ms-2" id="productsCountBadge">0</span>
+          </h5>
+          <div class="btn-group">
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#productSelectorModal">
+              <i class="ri-add-line me-1"></i>Agregar Productos
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" id="bulkActionsBtn" 
+                    data-bs-toggle="dropdown" disabled>
+              <i class="ri-more-line me-1"></i>Acciones
+            </button>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="#" id="bulkEditQuantity">
+                <i class="ri-edit-line me-2"></i>Cambiar Cantidad
+              </a></li>
+              <li><a class="dropdown-item" href="#" id="bulkChangeUnit">
+                <i class="ri-ruler-line me-2"></i>Cambiar Unidad
+              </a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="#" id="bulkDelete">
+                <i class="ri-delete-bin-line me-2"></i>Eliminar Seleccionados
+              </a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- Filtros rápidos para la tabla -->
+          <div class="row mb-4">
+            <div class="col-md-4">
+              <div class="form-floating form-floating-outline">
+                <select id="filterProductStock" class="form-select">
+                  <option value="">Todos los productos</option>
+                  <option value="sufficient">Con stock suficiente</option>
+                  <option value="insufficient">Stock insuficiente</option>
+                  <option value="no_stock">Sin stock</option>
+                </select>
+                <label for="filterProductStock">Filtrar por Stock</label>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-floating form-floating-outline">
+                <select id="filterProductCategory" class="form-select">
+                  <option value="">Todas las categorías</option>
+                </select>
+                <label for="filterProductCategory">Filtrar por Categoría</label>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-floating form-floating-outline">
+                <input type="text" class="form-control" id="searchSelectedProduct" placeholder="Buscar en productos seleccionados...">
+                <label for="searchSelectedProduct">Buscar Producto</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-bordered" id="selectedProductsTable">
+              <thead class="table-light">
+                <tr>
+                  <th width="3%">
+                    <input type="checkbox" class="form-check-input" id="selectAllSelectedProducts">
+                  </th>
+                  <th width="5%">#</th>
+                  <th width="30%">Producto</th>
+                  <th width="12%">Cantidad</th>
+                  <th width="10%">Unidad</th>
+                  <th width="10%">Stock</th>
+                  <th width="20%">Observaciones</th>
+                  <th width="10%">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="selectedProductsBody">
+                <!-- Se carga dinámicamente -->
+              </tbody>
+              <tfoot class="table-light">
+                <tr>
+                  <td colspan="3" class="text-end fw-bold">
+                    <i class="ri-calculator-line me-1"></i>Totales:
+                  </td>
+                  <td class="text-center fw-bold" id="totalQuantity">0</td>
+                  <td colspan="4" class="text-start">
+                    <small class="text-muted">productos seleccionados</small>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Empty state -->
+          <div id="emptyProductsState" class="text-center py-5 d-none">
+            <i class="ri-shopping-cart-line ri-48px text-muted mb-3"></i>
+            <h6 class="text-muted">No hay productos agregados</h6>
+            <p class="text-muted mb-4">Comienza agregando productos a tu requerimiento</p>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#productSelectorModal">
+              <i class="ri-add-line me-1"></i>Agregar Primer Producto
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Panel Lateral -->
+    <div class="col-12 col-lg-4">
+      <!-- Información Original -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="ri-information-line me-2"></i>Información Original
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">
+              <i class="ri-user-line me-1"></i>Creado por:
+            </span>
+            <span class="fw-medium" id="originalUser">-</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">
+              <i class="ri-calendar-line me-1"></i>Fecha Creación:
+            </span>
+            <span class="fw-medium" id="originalDate">-</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">
+              <i class="ri-flag-line me-1"></i>Estado:
+            </span>
+            <span class="badge" id="originalStatus">-</span>
+          </div>
+          <hr>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted">
+              <i class="ri-time-line me-1"></i>Última Modificación:
+            </span>
+            <span class="fw-medium" id="lastModified">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen Actual -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="ri-pie-chart-line me-2"></i>Resumen Actual
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">
+              <i class="ri-shopping-bag-line me-1"></i>Total Productos:
+            </span>
+            <span class="fw-medium badge bg-label-primary" id="totalProductos">0</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">
+              <i class="ri-add-circle-line me-1"></i>Cantidad Total:
+            </span>
+            <span class="fw-medium badge bg-label-info" id="cantidadTotal">0</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">
+              <i class="ri-check-line me-1"></i>Con Stock Suficiente:
+            </span>
+            <span class="fw-medium badge bg-label-success" id="productosConStock">0</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">
+              <i class="ri-close-line me-1"></i>Sin Stock Suficiente:
+            </span>
+            <span class="fw-medium badge bg-label-danger" id="productosSinStock">0</span>
+          </div>
+          <hr>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted">
+              <i class="ri-percent-line me-1"></i>% Stock Disponible:
+            </span>
+            <div class="d-flex align-items-center">
+              <div class="progress me-2" style="width: 60px; height: 6px;">
+                <div class="progress-bar" id="stockProgressBar" style="width: 0%"></div>
+              </div>
+              <span class="fw-medium" id="porcentajeStock">0%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Validaciones -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="ri-shield-check-line me-2"></i>Validaciones
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="validation-item mb-3" id="validationFecha">
+            <div class="d-flex align-items-center">
+              <i class="ri-calendar-line me-2 text-muted"></i>
+              <span>Fecha requerida válida</span>
+              <i class="ri-close-circle-line ms-auto text-danger" id="fechaIcon"></i>
+            </div>
+          </div>
+          <div class="validation-item mb-3" id="validationProductos">
+            <div class="d-flex align-items-center">
+              <i class="ri-shopping-cart-line me-2 text-muted"></i>
+              <span>Al menos 1 producto</span>
+              <i class="ri-close-circle-line ms-auto text-danger" id="productosIcon"></i>
+            </div>
+          </div>
+          <div class="validation-item mb-3" id="validationChanges">
+            <div class="d-flex align-items-center">
+              <i class="ri-edit-line me-2 text-muted"></i>
+              <span>Hay cambios para guardar</span>
+              <i class="ri-close-circle-line ms-auto text-muted" id="changesIcon"></i>
+            </div>
+          </div>
+          <div class="validation-item" id="validationStock">
+            <div class="d-flex align-items-center">
+              <i class="ri-stock-line me-2 text-muted"></i>
+              <span>Stock suficiente</span>
+              <i class="ri-alert-line ms-auto text-warning" id="stockIcon"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acciones Rápidas -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="ri-flash-line me-2"></i>Acciones Rápidas
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <button type="button" class="btn btn-outline-primary" id="duplicateRequirement">
+              <i class="ri-file-copy-line me-1"></i>Duplicar Requerimiento
+            </button>
+            <button type="button" class="btn btn-outline-info" id="previewRequirement">
+              <i class="ri-eye-line me-1"></i>Vista Previa PDF
+            </button>
+            <button type="button" class="btn btn-outline-success" id="exportRequirement">
+              <i class="ri-download-line me-1"></i>Exportar Excel
+            </button>
+            <hr class="my-3">
+            <button type="button" class="btn btn-outline-secondary" id="resetChanges" disabled>
+              <i class="ri-refresh-line me-1"></i>Deshacer Cambios
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ayuda -->
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title">
+            <i class="ri-lightbulb-line me-1"></i>Información
+          </h6>
+          <ul class="list-unstyled mb-0">
+            <li class="mb-2">
+              <small class="text-muted">
+                <i class="ri-information-line me-1 text-info"></i>
+                Solo se pueden editar requerimientos en estado "Pendiente" o "Rechazado"
+              </small>
+            </li>
+            <li class="mb-2">
+              <small class="text-muted">
+                <i class="ri-save-line me-1 text-success"></i>
+                Los cambios se auto-guardan cada 30 segundos
+              </small>
+            </li>
+            <li class="mb-2">
+              <small class="text-muted">
+                <i class="ri-stock-line me-1 text-warning"></i>
+                Verifica el stock antes de aumentar cantidades
+              </small>
+            </li>
+            <li>
+              <small class="text-muted">
+                <i class="ri-file-line me-1 text-primary"></i>
+                Puedes adjuntar archivos de hasta 10MB
+              </small>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Selector de Productos -->
+<div class="modal fade" id="productSelectorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="ri-shopping-cart-line me-2"></i>Agregar Productos al Requerimiento
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Filtros -->
+        <div class="row mb-4">
+          <div class="col-md-3">
+            <div class="form-floating form-floating-outline">
+              <select id="filterCategory" class="form-select">
+                <option value="">Todas las categorías</option>
+              </select>
+              <label for="filterCategory">
+                <i class="ri-folder-line me-1"></i>Categoría
+              </label>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-floating form-floating-outline">
+              <select id="filterStock" class="form-select">
+                <option value="">Todo el stock</option>
+                <option value="available">Con stock disponible</option>
+                <option value="low">Stock bajo</option>
+                <option value="out">Sin stock</option>
+              </select>
+              <label for="filterStock">
+                <i class="ri-stock-line me-1"></i>Estado Stock
+              </label>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-floating form-floating-outline">
+              <select id="filterPriceRange" class="form-select">
+                <option value="">Todos los precios</option>
+                <option value="0-50">S/. 0 - 50</option>
+                <option value="50-100">S/. 50 - 100</option>
+                <option value="100-500">S/. 100 - 500</option>
+                <option value="500+">S/. 500+</option>
+              </select>
+              <label for="filterPriceRange">
+                <i class="ri-money-dollar-circle-line me-1"></i>Rango Precio
+              </label>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-floating form-floating-outline">
+              <input type="text" class="form-control" id="searchProduct" placeholder="Buscar productos...">
+              <label for="searchProduct">
+                <i class="ri-search-line me-1"></i>Buscar
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estadísticas de filtrado -->
+        <div class="row mb-4">
+          <div class="col-12">
+            <div class="alert alert-info">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <i class="ri-information-line me-2"></i>
+                  <span id="filteredProductsInfo">Mostrando todos los productos disponibles</span>
+                </div>
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-outline-primary" id="selectVisibleProducts">
+                    Seleccionar Visibles
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="clearFilters">
+                    Limpiar Filtros
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de productos -->
+        <div class="table-responsive">
+          <table class="table table-hover" id="productsTable">
+            <thead class="table-light">
+              <tr>
+                <th width="5%">
+                  <input type="checkbox" class="form-check-input" id="selectAllProducts">
+                </th>
+                <th width="30%">Producto</th>
+                <th width="15%">Categoría</th>
+                <th width="10%">Stock</th>
+                <th width="15%">Precio</th>
+                <th width="10%">Estado</th>
+                <th width="10%">Cantidad</th>
+                <th width="5%">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody">
+              <!-- Se carga dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Loading state -->
+        <div id="productsLoadingState" class="text-center py-5 d-none">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Cargando productos...</span>
+          </div>
+          <p class="text-muted">Cargando productos disponibles...</p>
+        </div>
+
+        <!-- Empty state -->
+        <div id="productsEmptyState" class="text-center py-5 d-none">
+          <i class="ri-search-line ri-48px text-muted mb-3"></i>
+          <h6 class="text-muted">No se encontraron productos</h6>
+          <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
+          <button type="button" class="btn btn-outline-primary" id="resetProductFilters">
+            <i class="ri-refresh-line me-1"></i>Mostrar Todos
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="d-flex justify-content-between align-items-center w-100">
+          <div>
+            <span class="text-muted">
+              <i class="ri-check-line me-1"></i>
+              Seleccionados: <span class="fw-bold text-primary" id="selectedCount">0</span>
+            </span>
+          </div>
+          <div>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              <i class="ri-close-line me-1"></i>Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" id="addSelectedProducts" disabled>
+              <i class="ri-add-line me-1"></i>Agregar Seleccionados
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal para editar cantidad de producto -->
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="ri-edit-line me-2"></i>Editar Producto
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editProductForm">
+          <input type="hidden" id="editProductId">
+          <input type="hidden" id="editDetailId">
+          
+          <!-- Información del producto -->
+          <div class="mb-4">
+            <label class="form-label">Producto</label>
+            <div class="d-flex align-items-center p-3 border rounded bg-light">
+              <img id="editProductImage" src="" alt="" class="rounded me-3" 
+                   style="width: 50px; height: 50px; object-fit: cover;" 
+                   onerror="this.style.display='none'">
+              <div class="avatar avatar-lg me-3 d-none" id="editProductAvatar">
+                <span class="avatar-initial rounded bg-label-primary" id="editProductInitial"></span>
+              </div>
+              <div class="flex-grow-1">
+                <h6 class="mb-1" id="editProductName">Nombre del producto</h6>
+                <div class="d-flex align-items-center gap-3">
+                  <small class="text-muted">
+                    <i class="ri-barcode-line me-1"></i>
+                    <span id="editProductCode">PROD-001</span>
+                  </small>
+                  <small class="text-muted">
+                    <i class="ri-folder-line me-1"></i>
+                    <span id="editProductCategory">Categoría</span>
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campos editables -->
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-floating form-floating-outline mb-4">
+                <input type="number" class="form-control" id="editCantidad" name="cantidad_solicitada" 
+                       min="1" max="9999" required>
+                <label for="editCantidad">
+                  <i class="ri-add-circle-line me-1"></i>Cantidad *
+                </label>
+                <div class="form-text">Cantidad mínima: 1</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-floating form-floating-outline mb-4">
+                <select class="form-select" id="editUnidad" name="unidad_medida">
+                  <option value="unidad">Unidad</option>
+                  <option value="kg">Kilogramo</option>
+                  <option value="metro">Metro</option>
+                  <option value="litro">Litro</option>
+                  <option value="caja">Caja</option>
+                  <option value="paquete">Paquete</option>
+                  <option value="docena">Docena</option>
+                  <option value="otro">Otro</option>
+                </select>
+                <label for="editUnidad">
+                  <i class="ri-ruler-line me-1"></i>Unidad de Medida
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Unidad personalizada -->
+          <div class="form-floating form-floating-outline mb-4 d-none" id="editUnidadCustomContainer">
+            <input type="text" class="form-control" id="editUnidadCustom" name="unidad_medida_custom" 
+                   placeholder="Especificar unidad...">
+            <label for="editUnidadCustom">
+              <i class="ri-edit-line me-1"></i>Unidad Personalizada
+            </label>
+          </div>
+
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="editObservaciones" name="observaciones" 
+                      placeholder="Observaciones específicas..."></textarea>
+            <label for="editObservaciones">
+              <i class="ri-sticky-note-line me-1"></i>Observaciones
+            </label>
+            <div class="form-text">Información adicional sobre este producto</div>
+          </div>
+
+          <!-- Información de stock -->
+          <div class="alert alert-info">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <i class="ri-stock-line me-2"></i>
+                <strong>Stock disponible:</strong> 
+                <span id="editStockDisponible" class="fw-bold">0</span>
+              </div>
+              <div class="badge" id="editStockStatus">Sin stock</div>
+            </div>
+            <div class="mt-2">
+              <small class="text-muted">
+                <i class="ri-information-line me-1"></i>
+                <span id="editStockMessage">Verifica la cantidad solicitada</span>
+              </small>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" id="saveProductEdit">
+          <i class="ri-save-line me-1"></i>Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de confirmación para eliminar producto -->
+<div class="modal fade" id="deleteProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">
+          <i class="ri-delete-bin-line me-2"></i>Confirmar Eliminación
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center">
+          <div class="avatar avatar-xl mx-auto mb-3">
+            <span class="avatar-initial rounded bg-label-danger">
+              <i class="ri-delete-bin-line ri-24px"></i>
+            </span>
+          </div>
+          <h6 class="mb-3">¿Eliminar producto del requerimiento?</h6>
+          <p class="text-muted mb-4">Esta acción no se puede deshacer. El producto será removido permanentemente del requerimiento.</p>
+          
+          <!-- Información del producto a eliminar -->
+          <div class="p-3 bg-light rounded">
+            <div class="d-flex align-items-center">
+              <div class="avatar avatar-sm me-3">
+                <span class="avatar-initial rounded bg-label-secondary" id="deleteProductInitial">P</span>
+              </div>
+              <div class="text-start">
+                <div class="fw-medium" id="deleteProductName">Nombre del producto</div>
+                <small class="text-muted">
+                  <i class="ri-add-circle-line me-1"></i>
+                  Cantidad: <span id="deleteProductQuantity">1</span>
+                  <span id="deleteProductUnit">unidad</span>
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cancelar
+        </button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteProduct">
+          <i class="ri-delete-bin-line me-1"></i>Eliminar Producto
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para acciones masivas -->
+<div class="modal fade" id="bulkActionsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="ri-settings-line me-2"></i>Acciones Masivas
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-4">
+          <span id="bulkSelectedCount">0</span> productos seleccionados
+        </p>
+        
+        <div class="list-group">
+          <button type="button" class="list-group-item list-group-item-action" id="bulkEditQuantityAction">
+            <div class="d-flex align-items-center">
+              <i class="ri-edit-line me-3 text-primary"></i>
+              <div>
+                <div class="fw-medium">Cambiar Cantidad</div>
+                <small class="text-muted">Establecer nueva cantidad para productos seleccionados</small>
+              </div>
+            </div>
+          </button>
+          
+          <button type="button" class="list-group-item list-group-item-action" id="bulkChangeUnitAction">
+            <div class="d-flex align-items-center">
+              <i class="ri-ruler-line me-3 text-info"></i>
+              <div>
+                <div class="fw-medium">Cambiar Unidad</div>
+                <small class="text-muted">Establecer unidad de medida para productos seleccionados</small>
+              </div>
+            </div>
+          </button>
+          
+          <button type="button" class="list-group-item list-group-item-action text-danger" id="bulkDeleteAction">
+            <div class="d-flex align-items-center">
+              <i class="ri-delete-bin-line me-3"></i>
+              <div>
+                <div class="fw-medium">Eliminar Seleccionados</div>
+                <small class="text-muted">Remover productos seleccionados del requerimiento</small>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para duplicar requerimiento -->
+<div class="modal fade" id="duplicateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="ri-file-copy-line me-2"></i>Duplicar Requerimiento
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <i class="ri-information-line me-2"></i>
+          Se creará una copia exacta del requerimiento actual con todos sus productos.
+        </div>
+        
+        <form id="duplicateForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <input type="date" class="form-control" id="duplicateFecha" name="fecha_requerimiento" required>
+            <label for="duplicateFecha">
+              <i class="ri-calendar-line me-1"></i>Nueva Fecha Requerida *
+            </label>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <select class="form-select" id="duplicatePrioridad" name="prioridad">
+              <option value="baja">🟢 Baja</option>
+              <option value="media" selected>🟡 Media</option>
+              <option value="alta">🔴 Alta</option>
+            </select>
+            <label for="duplicatePrioridad">
+              <i class="ri-flag-line me-1"></i>Prioridad
+            </label>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="duplicateNotas" name="notas" 
+                      placeholder="Notas adicionales para el nuevo requerimiento..."></textarea>
+            <label for="duplicateNotas">
+              <i class="ri-sticky-note-line me-1"></i>Notas Adicionales
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" id="confirmDuplicate">
+          <i class="ri-file-copy-line me-1"></i>Crear Duplicado
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de vista previa PDF -->
+<div class="modal fade" id="pdfPreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="ri-file-pdf-line me-2"></i>Vista Previa - Requerimiento <span id="previewRequirementNumber"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="pdfFrame" src="" width="100%" height="600px" style="border: none;"></iframe>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cerrar
+        </button>
+        <button type="button" class="btn btn-danger" id="downloadPDF">
+          <i class="ri-download-line me-1"></i>Descargar PDF
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de confirmación para deshacer cambios -->
+<div class="modal fade" id="resetChangesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-warning">
+          <i class="ri-refresh-line me-2"></i>Deshacer Cambios
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center">
+          <div class="avatar avatar-xl mx-auto mb-3">
+            <span class="avatar-initial rounded bg-label-warning">
+              <i class="ri-refresh-line ri-24px"></i>
+            </span>
+          </div>
+          <h6 class="mb-3">¿Deshacer todos los cambios?</h6>
+          <p class="text-muted mb-4">
+            Se restaurará el requerimiento a su estado original. 
+            Todos los cambios no guardados se perderán.
+          </p>
+          
+          <div class="alert alert-warning">
+            <i class="ri-alert-line me-2"></i>
+            <strong>Esta acción no se puede deshacer</strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cancelar
+        </button>
+        <button type="button" class="btn btn-warning" id="confirmResetChanges">
+          <i class="ri-refresh-line me-1"></i>Deshacer Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Guardando cambios...</div>
+      <div class="mt-2">
+        <small id="loadingSubtext" class="text-white-50">Por favor espere...</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 11000;">
+  <!-- Los toasts se generan dinámicamente -->
+</div>
+
+<!-- Modal para cambio masivo de cantidad -->
+<div class="modal fade" id="bulkQuantityModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="ri-edit-line me-2"></i>Cambiar Cantidad Masivo
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-4">
+          Se aplicará la nueva cantidad a <span id="bulkQuantitySelectedCount" class="fw-bold">0</span> productos seleccionados
+        </p>
+        
+        <div class="form-floating form-floating-outline mb-4">
+          <input type="number" class="form-control" id="bulkNewQuantity" min="1" max="9999" required>
+          <label for="bulkNewQuantity">
+            <i class="ri-add-circle-line me-1"></i>Nueva Cantidad *
+          </label>
+          <div class="form-text">Se aplicará a todos los productos seleccionados</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" id="confirmBulkQuantity">
+          <i class="ri-check-line me-1"></i>Aplicar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para cambio masivo de unidad -->
+<div class="modal fade" id="bulkUnitModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="ri-ruler-line me-2"></i>Cambiar Unidad Masivo
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-4">
+          Se aplicará la nueva unidad a <span id="bulkUnitSelectedCount" class="fw-bold">0</span> productos seleccionados
+        </p>
+        
+        <div class="form-floating form-floating-outline mb-4">
+          <select class="form-select" id="bulkNewUnit" required>
+            <option value="">Seleccionar unidad...</option>
+            <option value="unidad">Unidad</option>
+            <option value="kg">Kilogramo</option>
+            <option value="metro">Metro</option>
+            <option value="litro">Litro</option>
+            <option value="caja">Caja</option>
+            <option value="paquete">Paquete</option>
+            <option value="docena">Docena</option>
+            <option value="otro">Otro</option>
+          </select>
+          <label for="bulkNewUnit">
+            <i class="ri-ruler-line me-1"></i>Nueva Unidad *
+          </label>
+        </div>
+        
+        <div class="form-floating form-floating-outline mb-4 d-none" id="bulkCustomUnitContainer">
+          <input type="text" class="form-control" id="bulkCustomUnit" placeholder="Especificar unidad...">
+          <label for="bulkCustomUnit">
+            <i class="ri-edit-line me-1"></i>Unidad Personalizada
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" id="confirmBulkUnit">
+          <i class="ri-check-line me-1"></i>Aplicar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts adicionales -->
+<script>
+// Configuración global para el componente de edición
+window.RequirementEditConfig = {
+    requirementId: {{ requirement_id|default:"null" }},
+    apiEndpoints: {
+        requirement: '/api/requirements/',
+        products: '/api/products/data/',
+        categories: '/api/categories/active/',
+        upload: '/api/requirements/' + ({{ requirement_id|default:"null" }} || 'null') + '/upload-file/'
+    },
+    validation: {
+        maxFileSize: 10 * 1024 * 1024, // 10MB
+        allowedFileTypes: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png'],
+        minProducts: 1,
+        maxProducts: 100
+    },
+    features: {
+        autoSave: true,
+        autoSaveInterval: 30000, // 30 segundos
+        showStockWarnings: true,
+        enableBulkActions: true,
+        enableDuplication: true
+    },
+    ui: {
+        animateChanges: true,
+        showTooltips: true,
+        enableKeyboardShortcuts: true
+    }
+};
+
+// Definir URLs Django para JavaScript
+window.djangoUrls = {
+    requirementsList: "{% url 'app-requirements-list' %}",
+    requirementDetails: function(id) { 
+        return "/app/requirements/details/" + id + "/"; 
+    },
+    exportPDF: function(id) { 
+        return "/api/requirements/" + id + "/export_pdf/"; 
+    },
+    exportExcel: function(id) { 
+        return "/api/requirements/" + id + "/export_excel/"; 
+    },
+    viewPDF: function(id) { 
+        return "/api/requirements/" + id + "/view_pdf/"; 
+    }
+};
+
+// Configuración de mensajes
+window.Messages = {
+    success: {
+        saved: '✅ Requerimiento guardado exitosamente',
+        productAdded: '✅ Producto agregado al requerimiento',
+        productUpdated: '✅ Producto actualizado correctamente',
+        productDeleted: '✅ Producto eliminado del requerimiento',
+        fileUploaded: '✅ Archivo subido exitosamente',
+        fileDeleted: '✅ Archivo eliminado correctamente',
+        duplicated: '✅ Requerimiento duplicado exitosamente',
+        bulkUpdated: '✅ Productos actualizados masivamente'
+    },
+    error: {
+        saveError: '❌ Error al guardar el requerimiento',
+        loadError: '❌ Error al cargar los datos',
+        validationError: '⚠️ Por favor complete todos los campos requeridos',
+        stockError: '⚠️ Stock insuficiente para algunos productos',
+        fileError: '❌ Error al procesar el archivo',
+        duplicateError: '❌ Error al duplicar el requerimiento',
+        networkError: '🌐 Error de conexión'
+    },
+    warning: {
+        unsavedChanges: '⚠️ Hay cambios sin guardar',
+        stockWarning: '⚠️ Algunos productos tienen stock insuficiente',
+        fileSize: '⚠️ El archivo es muy grande (máximo 10MB)',
+        beforeLeave: '¿Estás seguro? Hay cambios sin guardar que se perderán.',
+        noProductsSelected: '⚠️ No hay productos seleccionados'
+    },
+    info: {
+        autoSaving: '💾 Guardando automáticamente...',
+        loading: '⏳ Cargando datos...',
+        processing: '⚙️ Procesando solicitud...',
+        uploading: '📤 Subiendo archivo...'
+    }
+};
+
+// Configuración de accesos directos del teclado
+window.KeyboardShortcuts = {
+    save: 'Ctrl+S',
+    addProduct: 'Ctrl+Plus',
+    search: 'Ctrl+F',
+    duplicate: 'Ctrl+D',
+    preview: 'Ctrl+P',
+    help: 'F1'
+};
+
+// Inicialización cuando el documento esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar si tenemos ID de requerimiento
+    if (!window.RequirementEditConfig.requirementId) {
+        console.error('❌ ID de requerimiento no proporcionado');
+        toastr.error('Error: ID de requerimiento no válido');
+        return;
+    }
+    
+    // Configurar fecha mínima para el selector de fecha
+    const today = new Date().toISOString().split('T')[0];
+    const fechaInput = document.getElementById('fechaRequerimiento');
+    const duplicateFechaInput = document.getElementById('duplicateFecha');
+    
+    if (fechaInput) fechaInput.setAttribute('min', today);
+    if (duplicateFechaInput) duplicateFechaInput.setAttribute('min', today);
+    
+    // Configurar tooltips si están habilitados
+    if (window.RequirementEditConfig.ui.showTooltips && typeof bootstrap !== 'undefined') {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+    
+    // Configurar event listeners para unidad personalizada
+    const editUnidadSelect = document.getElementById('editUnidad');
+    const bulkNewUnitSelect = document.getElementById('bulkNewUnit');
+    
+    if (editUnidadSelect) {
+        editUnidadSelect.addEventListener('change', function() {
+            const customContainer = document.getElementById('editUnidadCustomContainer');
+            if (this.value === 'otro') {
+                customContainer.classList.remove('d-none');
+            } else {
+                customContainer.classList.add('d-none');
+            }
+        });
+    }
+    
+    if (bulkNewUnitSelect) {
+        bulkNewUnitSelect.addEventListener('change', function() {
+            const customContainer = document.getElementById('bulkCustomUnitContainer');
+            if (this.value === 'otro') {
+                customContainer.classList.remove('d-none');
+            } else {
+                customContainer.classList.add('d-none');
+            }
+        });
+    }
+    
+    // Mostrar información de configuración en consola
+    console.log('🚀 Requirements Edit Module loaded');
+    console.log('📋 Requirement ID:', window.RequirementEditConfig.requirementId);
+    console.log('⚙️ Features:', window.RequirementEditConfig.features);
+    
+    // Mensaje de bienvenida
+    console.log('%c✨ Sistema de Edición de Requerimientos', 'color: #28a745; font-size: 16px; font-weight: bold;');
+    console.log('%c🔧 Funciones disponibles: Auto-guardado, Validaciones, Gestión de productos', 'color: #6c757d;');
+});
+
+// Función de utilidad para formatear números
+window.formatNumber = function(number) {
+    return new Intl.NumberFormat('es-PE').format(number);
+};
+
+// Función de utilidad para formatear precios
+window.formatPrice = function(price) {
+    return 'S/. ' + parseFloat(price).toFixed(2);
+};
+
+// Función de utilidad para formatear fechas
+window.formatDate = function(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-PE', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+};
+
+// Función de utilidad para debounce
+window.debounce = function(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+};
+
+// Función para mostrar notificaciones toast personalizadas
+window.showToast = function(type, title, message, options = {}) {
+    const toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) return;
+    
+    const toastId = 'toast-' + Date.now();
+    const iconMap = {
+        success: 'ri-check-circle-line',
+        error: 'ri-close-circle-line',
+        warning: 'ri-alert-line',
+        info: 'ri-information-line'
+    };
+    
+    const colorMap = {
+        success: 'text-success',
+        error: 'text-danger',
+        warning: 'text-warning',
+        info: 'text-primary'
+    };
+    
+    const toastHtml = `
+        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="${iconMap[type]} ${colorMap[type]} me-2"></i>
+                <strong class="me-auto">${title}</strong>
+                <small class="text-muted">ahora</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        delay: options.delay || 5000,
+        autohide: options.autohide !== false
+    });
+    
+    toast.show();
+    
+    // Limpiar el DOM después de que se oculte
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+};
+
+// Configuración de atajos de teclado
+document.addEventListener('keydown', function(e) {
+    if (!window.RequirementEditConfig.ui.enableKeyboardShortcuts) return;
+    
+    // Ctrl+S para guardar
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveRequirement');
+        if (saveBtn && !saveBtn.disabled) {
+            saveBtn.click();
+        }
+    }
+    
+    // Ctrl+Plus para agregar producto
+    if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        const addBtn = document.querySelector('[data-bs-target="#productSelectorModal"]');
+        if (addBtn) {
+            addBtn.click();
+        }
+    }
+    
+    // Ctrl+D para duplicar
+    if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        const duplicateBtn = document.getElementById('duplicateRequirement');
+        if (duplicateBtn) {
+            duplicateBtn.click();
+        }
+    }
+    
+    // Ctrl+P para vista previa
+    if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        const previewBtn = document.getElementById('previewRequirement');
+        if (previewBtn) {
+            previewBtn.click();
+        }
+    }
+    
+    // Escape para cerrar modales
+    if (e.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal.show');
+        modals.forEach(modal => {
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+        });
+    }
+});
+
+// Configuración de eventos personalizados
+document.addEventListener('requirement:changed', function(e) {
+    console.log('📝 Requirement changed:', e.detail);
+});
+
+document.addEventListener('product:added', function(e) {
+    console.log('➕ Product added:', e.detail);
+});
+
+document.addEventListener('product:removed', function(e) {
+    console.log('➖ Product removed:', e.detail);
+});
+
+// Función para disparar eventos personalizados
+window.triggerEvent = function(eventName, detail = {}) {
+    document.dispatchEvent(new CustomEvent(eventName, { detail }));
+};
+
+// Configuración de interceptores de red para debugging
+if (window.RequirementEditConfig.debug) {
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        console.log('🌐 API Request:', args[0]);
+        return originalFetch.apply(this, args)
+            .then(response => {
+                console.log('📡 API Response:', response.status, response.statusText);
+                return response;
+            })
+            .catch(error => {
+                console.error('❌ API Error:', error);
+                throw error;
+            });
+    };
+}
+
+// Función de limpieza para cuando se cierre la página
+window.addEventListener('beforeunload', function(e) {
+    if (window.RequirementsEdit && window.RequirementsEdit.config.hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = window.Messages.warning.beforeLeave;
+        return e.returnValue;
+    }
+});
+
+// Función para verificar compatibilidad del navegador
+function checkBrowserCompatibility() {
+    const requiredFeatures = [
+        'fetch',
+        'Promise',
+        'classList',
+        'addEventListener'
+    ];
+    
+    const missingFeatures = requiredFeatures.filter(feature => {
+        return !(feature in window || feature in document.documentElement);
+    });
+    
+    if (missingFeatures.length > 0) {
+        console.warn('⚠️ Algunas funciones pueden no estar disponibles:', missingFeatures);
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-warning';
+        alertDiv.innerHTML = `
+            <i class="ri-alert-line me-2"></i>
+            <strong>Navegador no totalmente compatible:</strong> 
+            Algunas funciones avanzadas pueden no funcionar correctamente.
+        `;
+        document.querySelector('.app-requirements-edit').prepend(alertDiv);
+    }
+}
+
+// Verificar compatibilidad al cargar
+checkBrowserCompatibility();
+
+// Función para mostrar información de ayuda
+window.showHelp = function() {
+    const helpContent = `
+        <div class="text-start">
+            <h6><i class="ri-keyboard-line me-2"></i>Atajos de Teclado:</h6>
+            <ul class="list-unstyled mb-3">
+                <li><kbd>Ctrl + S</kbd> - Guardar cambios</li>
+                <li><kbd>Ctrl + +</kbd> - Agregar productos</li>
+                <li><kbd>Ctrl + D</kbd> - Duplicar requerimiento</li>
+                <li><kbd>Ctrl + P</kbd> - Vista previa PDF</li>
+                <li><kbd>Esc</kbd> - Cerrar modales</li>
+                <li><kbd>F1</kbd> - Mostrar ayuda</li>
+            </ul>
+            
+            <h6><i class="ri-information-line me-2"></i>Funciones:</h6>
+            <ul class="list-unstyled mb-3">
+                <li>• Auto-guardado cada 30 segundos</li>
+                <li>• Validación de stock en tiempo real</li>
+                <li>• Filtros avanzados de productos</li>
+                <li>• Gestión de archivos adjuntos</li>
+                <li>• Duplicación de requerimientos</li>
+                <li>• Acciones masivas en productos</li>
+            </ul>
+            
+            <h6><i class="ri-shield-check-line me-2"></i>Validaciones:</h6>
+            <ul class="list-unstyled">
+                <li>• Fecha no puede ser en el pasado</li>
+                <li>• Mínimo 1 producto requerido</li>
+                <li>• No productos duplicados</li>
+                <li>• Archivos máximo 10MB</li>
+                <li>• Verificación de stock disponible</li>
+            </ul>
+        </div>
+    `;
+    
+    Swal.fire({
+        title: '📖 Ayuda - Editor de Requerimientos',
+        html: helpContent,
+        icon: 'info',
+        confirmButtonText: 'Entendido',
+        customClass: {
+            confirmButton: 'btn btn-primary'
+        },
+        buttonsStyling: false,
+        width: '600px'
+    });
+};
+
+// Agregar botón de ayuda si no existe
+if (!document.getElementById('helpButton')) {
+    const helpButton = document.createElement('button');
+    helpButton.id = 'helpButton';
+    helpButton.className = 'btn btn-outline-info btn-icon position-fixed';
+    helpButton.style.cssText = 'bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px;';
+    helpButton.innerHTML = '<i class="ri-question-line"></i>';
+    helpButton.title = 'Ayuda (F1)';
+    helpButton.onclick = showHelp;
+    document.body.appendChild(helpButton);
+}
+
+// F1 para ayuda
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F1') {
+        e.preventDefault();
+        showHelp();
+    }
+});
+
+// Función para limpiar archivos
+document.getElementById('clearFileBtn')?.addEventListener('click', function() {
+    const fileInput = document.getElementById('archivoAdjunto');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+});
+
+// Configurar validación de archivo en tiempo real
+document.getElementById('archivoAdjunto')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const maxSize = window.RequirementEditConfig.validation.maxFileSize;
+    const allowedTypes = window.RequirementEditConfig.validation.allowedFileTypes;
+    
+    // Validar tamaño
+    if (file.size > maxSize) {
+        toastr.error('El archivo es demasiado grande. Máximo 10MB permitido.');
+        e.target.value = '';
+        return;
+    }
+    
+    // Validar tipo
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedTypes.includes(fileExtension)) {
+        toastr.error('Tipo de archivo no permitido. Use: ' + allowedTypes.join(', '));
+        e.target.value = '';
+        return;
+    }
+    
+    toastr.success('Archivo válido seleccionado: ' + file.name);
+});
+
+// Configuración de auto-resize para textareas
+document.querySelectorAll('textarea').forEach(textarea => {
+    textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+});
+
+console.log('✅ Requirements Edit Template completamente cargado');
+console.log('🎯 Listo para editar requerimiento:', window.RequirementEditConfig.requirementId);
+console.log('📝 Funciones disponibles:');
+console.log('   - Auto-guardado cada 30 segundos');
+console.log('   - Validaciones en tiempo real');
+console.log('   - Gestión completa de productos');
+console.log('   - Acciones masivas');
+console.log('   - Atajos de teclado');
+console.log('   - Duplicación de requerimientos');
+console.log('   - Vista previa y exportación');
+</script>
+{% endblock %}

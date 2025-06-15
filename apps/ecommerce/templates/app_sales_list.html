@@ -1,0 +1,286 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Lista de Ventas{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
+<script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/sales-list.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<!-- Sales Analytics -->
+<div class="card mb-6">
+  <div class="card-widget-separator-wrapper">
+    <div class="card-body card-widget-separator">
+      <div class="row gy-4 gy-sm-1" id="salesStats">
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Ventas Hoy</p>
+              <h4 class="mb-1" id="todaySales">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="todayAmount">S/.0.00</span>
+                <span class="badge rounded-pill bg-label-success">📊</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-calendar-today-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+            <div>
+              <p class="mb-1">Este Mes</p>
+              <h4 class="mb-1" id="monthSales">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="monthAmount">S/.0.00</span>
+                <span class="badge rounded-pill bg-label-info">📈</span>
+              </p>
+            </div>
+            <div class="avatar me-lg-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-calendar-month-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+            <div>
+              <p class="mb-1">Pendientes</p>
+              <h4 class="mb-1" id="pendingSales">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="pendingAmount">S/.0.00</span>
+                <span class="badge rounded-pill bg-label-warning">⏳</span>
+              </p>
+            </div>
+            <div class="avatar me-sm-6">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-hourglass-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <p class="mb-1">Completadas</p>
+              <h4 class="mb-1" id="completedSales">0</h4>
+              <p class="mb-0">
+                <span class="me-2" id="completedAmount">S/.0.00</span>
+                <span class="badge rounded-pill bg-label-success">✅</span>
+              </p>
+            </div>
+            <div class="avatar">
+              <span class="avatar-initial rounded text-heading">
+                <i class="ri-check-double-line ri-26px"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sales List Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">Lista de Ventas</h5>
+      <div class="d-flex gap-2">
+        <a href="{% url 'app-sales-pos' %}" class="btn btn-success">
+          <i class="ri-cash-line me-1"></i>Venta Rapida
+        </a>
+      </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="d-flex justify-content-between align-items-center row gap-5 gx-6 gap-md-0 mt-4">
+      <div class="col-md-2">
+        <div class="form-floating form-floating-outline">
+          <select class="form-select" id="statusFilter">
+            <option value="">Todos los estados</option>
+            <option value="draft">Borrador</option>
+            <option value="pending">Pendiente</option>
+            <option value="confirmed">Confirmado</option>
+            <option value="invoiced">Facturado</option>
+            <option value="delivered">Entregado</option>
+            <option value="paid">Pagado</option>
+            <option value="completed">Completado</option>
+            <option value="cancelled">Cancelado</option>
+            <option value="returned">Devuelto</option>
+          </select>
+          <label for="statusFilter">Estado</label>
+        </div>
+      </div>
+      
+      <div class="col-md-2">
+        <div class="form-floating form-floating-outline">
+          <select class="form-select" id="paymentMethodFilter">
+            <option value="">Todos los métodos</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="tarjeta_credito">Tarjeta Crédito</option>
+            <option value="tarjeta_debito">Tarjeta Débito</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="yape">Yape</option>
+            <option value="plin">Plin</option>
+            <option value="credito">Crédito</option>
+          </select>
+          <label for="paymentMethodFilter">Método Pago</label>
+        </div>
+      </div>
+      
+      <div class="col-md-2">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="dateFromFilter" placeholder="YYYY-MM-DD">
+          <label for="dateFromFilter">Desde</label>
+        </div>
+      </div>
+      
+      <div class="col-md-2">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="dateToFilter" placeholder="YYYY-MM-DD">
+          <label for="dateToFilter">Hasta</label>
+        </div>
+      </div>
+      
+      <div class="col-md-3">
+        <div class="form-floating form-floating-outline">
+          <input type="text" class="form-control" id="searchFilter" placeholder="Buscar...">
+          <label for="searchFilter">Buscar venta, cliente...</label>
+        </div>
+      </div>
+      
+      <div class="col-md-1">
+        <button class="btn btn-outline-secondary w-100" id="clearFiltersBtn" style="height: 56px;">
+          <i class="ri-refresh-line"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card-datatable table-responsive">
+    <table class="datatables-sales table">
+      <thead>
+        <tr>
+          <th></th>
+          <th></th>
+          <th>Número</th>
+          <th>Cliente</th>
+          <th>Fecha</th>
+          <th>Total</th>
+          <th>Pago</th>
+          <th>Estado</th>
+          <th>Items</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+<!-- Sale Details Modal -->
+<div class="modal fade" id="saleDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalles de la Venta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="saleDetailsContent">
+          <!-- Content will be loaded dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <div id="saleActionsButtons">
+          <!-- Action buttons will be added dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Change Status Modal -->
+<div class="modal fade" id="changeStatusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cambiar Estado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="changeStatusForm">
+          <div class="form-floating form-floating-outline mb-4">
+            <select class="form-select" id="newStatus" name="status" required>
+              <option value="">Seleccionar estado...</option>
+              <option value="draft">Borrador</option>
+              <option value="pending">Pendiente</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="invoiced">Facturado</option>
+              <option value="delivered">Entregado</option>
+              <option value="paid">Pagado</option>
+              <option value="completed">Completado</option>
+              <option value="cancelled">Cancelado</option>
+              <option value="returned">Devuelto</option>
+            </select>
+            <label for="newStatus">Nuevo Estado</label>
+          </div>
+          
+          <div class="form-floating form-floating-outline mb-4">
+            <textarea class="form-control h-px-100" id="statusNotes" name="internal_notes" placeholder="Motivo del cambio..."></textarea>
+            <label for="statusNotes">Notas (Opcional)</label>
+          </div>
+          
+          <div class="alert alert-warning" id="statusWarning" style="display: none;">
+            <i class="ri-alert-line me-2"></i>
+            <span id="statusWarningText"></span>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirmStatusChangeBtn">Cambiar Estado</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Procesando...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

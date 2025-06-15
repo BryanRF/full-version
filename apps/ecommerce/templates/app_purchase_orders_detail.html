@@ -1,0 +1,307 @@
+<!-- apps/ecommerce/templates/app_purchase_orders_detail.html -->
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Detalle Orden de Compra{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/purchase-orders-detail.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+  <div class="d-flex flex-column justify-content-center">
+    <h4 class="mb-1">Orden de Compra <span id="poNumber">{{ purchase_order.po_number|default:"..." }}</span></h4>
+    <p class="mb-0">Detalles y gestión de la orden de compra</p>
+  </div>
+  <div class="d-flex align-content-center flex-wrap gap-2">
+    <a href="{% url 'app-purchase-orders-list' %}" class="btn btn-outline-secondary">
+      <i class="ri-arrow-left-line me-1"></i>Volver
+    </a>
+    <button type="button" class="btn btn-info" id="exportPdfBtn">
+      <i class="ri-file-pdf-line me-1"></i>Exportar PDF
+    </button>
+    <div class="btn-group" role="group">
+      <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="ri-settings-line me-1"></i>Acciones
+      </button>
+      <ul class="dropdown-menu" id="actionsList">
+        <!-- Se carga dinámicamente según el estado -->
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="row" id="poDetailsContainer">
+  <!-- Purchase Order Status Card -->
+  <div class="col-12">
+    <div class="card mb-6">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <div class="d-flex align-items-center">
+              <div class="avatar avatar-lg me-4">
+                <span class="avatar-initial rounded bg-label-primary" id="statusIcon">📋</span>
+              </div>
+              <div>
+                <h5 class="mb-1" id="supplierName">Cargando...</h5>
+                <p class="mb-0 text-muted" id="supplierContact">-</p>
+                <div class="mt-2">
+                  <span class="badge" id="statusBadge">-</span>
+                  <span class="badge bg-label-info ms-2" id="progressBadge">0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 text-md-end">
+            <h4 class="text-primary mb-1" id="totalAmount">S/.0.00</h4>
+            <p class="mb-0 text-muted">Total de la orden</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Information -->
+  <div class="col-md-8">
+    <!-- Basic Information -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Información de la Orden</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <dl class="row mb-0">
+              <dt class="col-sm-5">Número:</dt>
+              <dd class="col-sm-7" id="orderNumber">-</dd>
+              
+              <dt class="col-sm-5">Fecha Orden:</dt>
+              <dd class="col-sm-7" id="orderDate">-</dd>
+              
+              <dt class="col-sm-5">Entrega Esperada:</dt>
+              <dd class="col-sm-7" id="expectedDelivery">-</dd>
+              
+              <dt class="col-sm-5">Creado por:</dt>
+              <dd class="col-sm-7" id="createdBy">-</dd>
+            </dl>
+          </div>
+          <div class="col-md-6">
+            <h6>Proveedor</h6>
+            <div id="supplierInfo">
+              <p class="mb-1"><strong id="supplierCompany">-</strong></p>
+              <p class="mb-1">Contacto: <span id="supplierContactPerson">-</span></p>
+              <p class="mb-1">Email: <span id="supplierEmail">-</span></p>
+              <p class="mb-0">Teléfono: <span id="supplierPhone">-</span></p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-4" id="notesSection" style="display: none;">
+          <h6>Notas</h6>
+          <p class="text-muted" id="orderNotes">-</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <div class="card mb-6">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Productos Ordenados</h5>
+        <button type="button" class="btn btn-sm btn-success" id="receiveItemsBtn" style="display: none;">
+          <i class="ri-truck-line me-1"></i>Recibir Productos
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover" id="itemsTable">
+            <thead class="table-light">
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Cant. Ordenada</th>
+                <th>Cant. Recibida</th>
+                <th>Pendiente</th>
+                <th>Precio Unit.</th>
+                <th>Total</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="itemsTableBody">
+              <tr>
+                <td colspan="8" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <td colspan="6" class="text-end"><strong>Subtotal:</strong></td>
+                <td><strong id="subtotalValue">S/.0.00</strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colspan="6" class="text-end"><strong>IGV (18%):</strong></td>
+                <td><strong id="taxValue">S/.0.00</strong></td>
+                <td></td>
+              </tr>
+              <tr class="table-success">
+                <td colspan="6" class="text-end"><strong>TOTAL:</strong></td>
+                <td><strong id="totalValue">S/.0.00</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-md-4">
+    <!-- Progress Card -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <h6 class="card-title mb-0">Progreso de Entrega</h6>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span>Completado</span>
+          <span id="completionPercentage">0%</span>
+        </div>
+        <div class="progress mb-4">
+          <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+        </div>
+        
+        <div class="row text-center">
+          <div class="col-6">
+            <div class="border-end">
+              <h5 class="mb-1" id="totalItemsCount">0</h5>
+              <small class="text-muted">Total Items</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <h5 class="mb-1" id="pendingItemsCount">0</h5>
+            <small class="text-muted">Pendientes</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <h6 class="card-title mb-0">Acciones Rápidas</h6>
+      </div>
+      <div class="card-body">
+        <div class="d-grid gap-2" id="quickActions">
+          <!-- Se cargan dinámicamente según el estado -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Timeline -->
+    <div class="card">
+      <div class="card-header">
+        <h6 class="card-title mb-0">Historial</h6>
+      </div>
+      <div class="card-body">
+        <div class="timeline" id="activityTimeline">
+          <div class="timeline-item">
+            <div class="timeline-indicator timeline-indicator-primary">
+              <i class="ri-add-line"></i>
+            </div>
+            <div class="timeline-event">
+              <div class="timeline-header mb-1">
+                <h6 class="mb-0">Orden Creada</h6>
+                <small class="text-muted" id="createdDate">-</small>
+              </div>
+              <p class="mb-0 text-muted">Orden de compra generada</p>
+            </div>
+          </div>
+          <!-- Más items se agregan dinámicamente -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Receive Items Modal -->
+<div class="modal fade" id="receiveItemsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Recibir Productos</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="receiveItemsForm">
+          <div class="alert alert-info">
+            <i class="ri-information-line me-2"></i>
+            Registre las cantidades recibidas. Solo ingrese las cantidades que está recibiendo en este momento.
+          </div>
+          
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Ordenado</th>
+                  <th>Ya Recibido</th>
+                  <th>Pendiente</th>
+                  <th>Recibir Ahora</th>
+                </tr>
+              </thead>
+              <tbody id="receiveItemsTableBody">
+                <!-- Se carga dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="confirmReceiveBtn">
+          <i class="ri-check-line me-1"></i>Confirmar Recepción
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Procesando...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Configuración inicial desde el template
+window.PO_CONFIG = {
+    poId: {% if purchase_order %}{{ purchase_order.id }}{% else %}null{% endif %},
+    csrfToken: '{{ csrf_token }}'
+};
+</script>
+{% endblock %}
