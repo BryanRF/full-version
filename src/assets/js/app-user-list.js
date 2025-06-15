@@ -390,7 +390,6 @@ $(function () {
               '<a href="javascript:void(0);" class="dropdown-item btn-toggle-status" data-id="' + full.id + '" data-status="' + currentStatus + '">' + toggleText + '</a>' +
               '<a href="javascript:void(0);" class="dropdown-item btn-reset-password" data-id="' + full.id + '">Resetear Contraseña</a>' +
               '<div class="dropdown-divider"></div>' +
-              '<a href="javascript:void(0);" class="dropdown-item">Ver Detalles</a>' +
               '</div>' +
               '</div>'
             );
