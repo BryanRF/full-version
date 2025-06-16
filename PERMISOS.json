@@ -1,0 +1,158 @@
+{
+  "menu": [
+    {
+      "menu_header": "Modulos"
+    },
+    {
+      "name": "Almacen",
+      "icon": "menu-icon tf-icons ri-shopping-bag-3-line",
+      "slug": "app-ecommerce",
+      "submenu": [
+        {
+          "url": "app-ecommerce-dashboard",
+          "name": "Dashboard",
+          "slug": "app-ecommerce-dashboard"
+        },
+        {
+          "name": "Productos",
+          "slug": "app-ecommerce-product",
+          "submenu": [
+            {
+              "url": "app-ecommerce-product-list",
+              "name": "Lista Productos",
+              "slug": "app-ecommerce-product-list",
+              "permission": "view_product"
+            },
+            {
+              "url": "app-ecommerce-product-add",
+              "name": "Agregar Productos",
+              "slug": "app-ecommerce-product-add",
+              "permission": "add_product"
+            },
+            {
+              "url": "app-ecommerce-product-category-list",
+              "name": "Lista Categorias",
+              "slug": "app-ecommerce-product-category-list",
+              "permission": "view_category"
+            }
+          ]
+        },
+        {
+          "name": "Proveedores",
+          "slug": "app-ecommerce-customer",
+          "submenu": [
+            {
+              "url": "app-ecommerce-customer-all",
+              "name": "Lista Proveedores",
+              "slug": "app-ecommerce-customer-all",
+              "permission": "view_supplier"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gestion Compras",
+      "icon": "menu-icon tf-icons ri-bill-line",
+      "slug": "app-ecommerce-customer",
+      "submenu": [
+        {
+          "name": "Requerimientos",
+          "slug": "app-ecommerce-customer",
+          "submenu": [
+            {
+              "url": "app-requirements-list",
+              "name": "Listado Requerimientos",
+              "slug": "app-requirements-list",
+              "permission": "view_requirement"
+            },
+            {
+              "url": "app-requirements-add",
+              "name": "Agregar Requerimiento",
+              "slug": "app-requirements-add",
+              "permission": "add_requirement"
+            }
+          ]
+        },
+        {
+          "name": "Cotizaciones",
+          "slug": "app-ecommerce-customer",
+          "submenu": [
+            {
+              "url": "app-cotizacion-list",
+              "name": "Listado Cotizaciones",
+              "slug": "app-cotizacion-list"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ventas",
+      "icon": "menu-icon tf-icons ri-shopping-cart-line",
+      "permission": "view_sale",
+      "slug": "app-sales",
+      "submenu": [
+        {
+          "url": "app-sales-pos",
+          "name": "Punto de venta",
+          "slug": "app-sales-pos",
+          "permission": "add_sale"
+        },
+        {
+          "url": "app-sales-list",
+          "name": "Lista de venta",
+          "slug": "app-sales-list",
+          "permission": "view_sale"
+        }
+      ]
+    },
+    {
+      "name": "Clientes",
+      "icon": "menu-icon tf-icons ri-user-3-line",
+      "permission": "view_customer",
+      "slug": "app-customers-list",
+      "submenu": [
+        {
+          "url": "app-customers-list",
+          "name": "Lista Clientes",
+          "slug": "app-customers-list",
+          "permission": "view_customer"
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "icon": "menu-icon tf-icons ri-user-line",
+      "permission": "view_user",
+      "slug": "app-user",
+      "submenu": [
+        {
+          "url": "app-user-list",
+          "name": "Lista",
+          "slug": "app-user-list",
+          "permission": "view_user"
+        },
+        {
+          "url": "notifications-list-page",
+          "name": "Notificaciones",
+          "slug": "notifications-list-page"
+        }
+      ]
+    },
+    {
+      "name": "Roles & Permisos",
+      "icon": "menu-icon tf-icons ri-lock-2-line",
+      "permission": "view_permissionmodule",
+      "slug": "app-access",
+      "submenu": [
+        {
+          "url": "app-access-roles",
+          "name": "Permisos",
+          "slug": "app-access-roles",
+          "permission": "view_permissionmodule"
+        }
+      ]
+    }
+  ]
+}

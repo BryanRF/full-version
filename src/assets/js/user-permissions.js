@@ -354,18 +354,25 @@ function confirmSaveChanges() {
     const originalText = saveBtn.html();
     saveBtn.prop('disabled', true).html('<div class="spinner-border spinner-border-sm me-2"></div>Guardando...');
 
+    // Datos a enviar
+    const requestData = {
+        role: currentRole,
+        permission_ids: currentPermissions
+    };
+
+    console.log('Enviando datos:', requestData); // Para debug
+
     $.ajax({
         url: '/auth/role-permissions/update/',
-        method: 'PUT',
+        method: 'OPTIONS', // Cambiado a POST
         headers: {
             'X-CSRFToken': csrftoken,
             'Content-Type': 'application/json'
         },
-        data: JSON.stringify({
-            role: currentRole,
-            permission_ids: currentPermissions
-        }),
+        data: JSON.stringify(requestData),
         success: function(response) {
+            console.log('Respuesta exitosa:', response); // Para debug
+
             if (response.success) {
                 toastr['success']('', response.message);
 
@@ -383,12 +390,28 @@ function confirmSaveChanges() {
 
                 updateSaveButton();
             } else {
-                toastr['error']('', response.error);
+                toastr['error']('', response.error || 'Error al guardar permisos');
             }
         },
-        error: function(xhr) {
-            console.error('Error saving role permissions:', xhr);
-            toastr['error']('', 'Error al guardar los permisos');
+        error: function(xhr, status, error) {
+            console.error('Error en la petición:', xhr.responseText); // Para debug
+            console.error('Status:', status);
+            console.error('Error:', error);
+
+            let errorMessage = 'Error al guardar los permisos';
+
+            if (xhr.responseJSON) {
+                errorMessage = xhr.responseJSON.error || xhr.responseJSON.detail || errorMessage;
+            } else if (xhr.responseText) {
+                try {
+                    const errorData = JSON.parse(xhr.responseText);
+                    errorMessage = errorData.error || errorData.detail || errorMessage;
+                } catch(e) {
+                    errorMessage = `Error del servidor (${xhr.status})`;
+                }
+            }
+
+            toastr['error']('', errorMessage);
         },
         complete: function() {
             saveBtn.prop('disabled', false).html(originalText);

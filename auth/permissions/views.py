@@ -170,9 +170,40 @@ class UpdateRolePermissionsAPIView(APIView):
     """API para actualizar permisos de un rol"""
 
     def post(self, request):
+        """Manejar peticiones POST"""
+        return self._update_permissions(request)
+
+    def put(self, request):
+        """Manejar peticiones PUT"""
+        return self._update_permissions(request)
+
+    def patch(self, request):
+        """Manejar peticiones PATCH"""
+        return self._update_permissions(request)
+
+    def _update_permissions(self, request):
+        """Lógica común para actualizar permisos"""
         try:
-            role = request.data.get('role')
-            permission_ids = request.data.get('permission_ids', [])
+            # Obtener datos dependiendo del Content-Type
+            if hasattr(request, 'data') and request.data:
+                # DRF data (cuando Content-Type es application/json)
+                data = request.data
+            else:
+                # Fallback para otros casos
+                import json
+                if request.content_type == 'application/json':
+                    data = json.loads(request.body.decode('utf-8'))
+                else:
+                    data = request.POST
+
+            role = data.get('role')
+            permission_ids = data.get('permission_ids', [])
+
+            # Log para debug
+            logger.info(f"Updating permissions for role: {role}")
+            logger.info(f"Permission IDs: {permission_ids}")
+            logger.info(f"Request method: {request.method}")
+            logger.info(f"Content type: {request.content_type}")
 
             # Validar rol
             valid_roles = [choice[0] for choice in Role.choices]
@@ -180,6 +211,13 @@ class UpdateRolePermissionsAPIView(APIView):
                 return JsonResponse({
                     'success': False,
                     'error': f'Rol no válido. Roles válidos: {", ".join(valid_roles)}'
+                }, status=400)
+
+            # Validar que permission_ids sea una lista
+            if not isinstance(permission_ids, list):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'permission_ids debe ser una lista'
                 }, status=400)
 
             with transaction.atomic():
@@ -201,14 +239,18 @@ class UpdateRolePermissionsAPIView(APIView):
                     )
 
                 # Validar que los permisos existen
-                permissions = Permission.objects.filter(id__in=permission_ids)
-                if len(permissions) != len(permission_ids):
-                    valid_ids = list(permissions.values_list('id', flat=True))
-                    invalid_ids = [pid for pid in permission_ids if pid not in valid_ids]
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Permisos no válidos: {invalid_ids}'
-                    }, status=400)
+                if permission_ids:  # Solo validar si hay IDs
+                    permissions = Permission.objects.filter(id__in=permission_ids)
+                    if len(permissions) != len(permission_ids):
+                        valid_ids = list(permissions.values_list('id', flat=True))
+                        invalid_ids = [pid for pid in permission_ids if pid not in valid_ids]
+                        return JsonResponse({
+                            'success': False,
+                            'error': f'Permisos no válidos: {invalid_ids}'
+                        }, status=400)
+                else:
+                    # Lista vacía = remover todos los permisos
+                    permissions = []
 
                 # Actualizar permisos del rol
                 role_config.group.permissions.set(permissions)
@@ -228,11 +270,20 @@ class UpdateRolePermissionsAPIView(APIView):
             return JsonResponse({
                 'success': True,
                 'message': f'Permisos actualizados para el rol {dict(Role.choices)[role]}. {affected_users} usuarios sincronizados.',
-                'affected_users': affected_users
+                'affected_users': affected_users,
+                'permissions_count': len(permissions)
             })
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Error en el formato de datos JSON'
+            }, status=400)
 
         except Exception as e:
             logger.error(f"Error updating role permissions: {str(e)}")
+            logger.error(f"Request data: {getattr(request, 'data', 'No data')}")
             return JsonResponse({
                 'success': False,
                 'error': f'Error interno: {str(e)}'
