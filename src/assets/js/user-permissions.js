@@ -356,7 +356,7 @@ function confirmSaveChanges() {
 
     $.ajax({
         url: '/auth/role-permissions/update/',
-        method: 'POST',
+        method: 'PUT',
         headers: {
             'X-CSRFToken': csrftoken,
             'Content-Type': 'application/json'

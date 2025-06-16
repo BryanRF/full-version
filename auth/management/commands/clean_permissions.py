@@ -51,7 +51,35 @@ class Command(BaseCommand):
         # 2. Permisos específicos que NO queremos (independiente de la app)
         unwanted_permissions = [
             # Permisos de admin de Django
-            'add_logentry', 'change_logentry', 'delete_logentry', 'view_logentry',
+
+
+            # Permisos de eliminación (delete) - no están en el menú
+            'delete_category', 'delete_customer', 'delete_customercontact',
+            'delete_enviocotizacion', 'delete_product', 'delete_purchaseorder',
+            'delete_requirement', 'delete_requirementdetail', 'delete_respuestacotizacion',
+            'delete_sale', 'delete_salepayment', 'delete_supplier', 'delete_suppliercontact',
+            'delete_user', 'delete_permissionmodule', 'delete_profile',
+            'delete_rolepermissionconfig', 'delete_userpermissionassignment', 'delete_userpermissiongroup',
+
+            # Permisos de modificación (change) - no están en el menú
+            'change_category', 'change_customer', 'change_customercontact',
+            'change_enviocotizacion', 'change_product', 'change_purchaseorder',
+            'change_requirement', 'change_requirementdetail', 'change_respuestacotizacion',
+            'change_sale', 'change_salepayment', 'change_supplier', 'change_suppliercontact',
+            'change_user', 'change_permissionmodule', 'change_profile',
+            'change_rolepermissionconfig', 'change_userpermissionassignment', 'change_userpermissiongroup',
+
+            # Permisos de creación (add) que no corresponden al menú
+            'add_customercontact', 'add_enviocotizacion', 'add_purchaseorder',
+            'add_requirementdetail', 'add_respuestacotizacion', 'add_salepayment',
+            'add_suppliercontact', 'add_user', 'add_permissionmodule', 'add_profile',
+            'add_rolepermissionconfig', 'add_userpermissionassignment', 'add_userpermissiongroup',
+
+            # Permisos de visualización que no están en el menú
+            'view_customercontact', 'view_enviocotizacion', 'view_purchaseorder',
+            'view_requirementdetail', 'view_respuestacotizacion', 'view_salepayment',
+            'view_suppliercontact', 'view_permissionmodule', 'view_profile',
+            'view_rolepermissionconfig', 'view_userpermissionassignment', 'view_userpermissiongroup'
 
             # Permisos de auth que no necesitamos
             'add_group', 'change_group', 'delete_group', 'view_group',
