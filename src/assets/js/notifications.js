@@ -224,7 +224,7 @@ class NotificationSystem {
         // Redirigir si tiene URL de acción
         if (notification.url_accion) {
             setTimeout(() => {
-                window.location.href = notification.url_accion;
+                window.location.href = '/notifications/';
             }, 100);
         }
     }
@@ -307,7 +307,7 @@ class NotificationSystem {
             moreNotifications.className = 'text-center p-2 border-top';
             moreNotifications.innerHTML = `
                 <small class="text-muted">
-                    Y ${this.notifications.length - 8} notificaciones más...
+                    Y ${this.notifications.length - 4} notificaciones más...
                     <a href="/notifications/" class="ms-1">Ver todas</a>
                 </small>
             `;

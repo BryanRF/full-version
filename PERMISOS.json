@@ -147,9 +147,9 @@
       "slug": "app-access",
       "submenu": [
         {
-          "url": "app-access-roles",
+          "url": "role-permissions",
           "name": "Permisos",
-          "slug": "app-access-roles",
+          "slug": "role-permissions",
           "permission": "view_permissionmodule"
         }
       ]
