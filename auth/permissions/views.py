@@ -1,10 +1,10 @@
-# auth/views.py - Sistema de permisos por roles
+# auth/views.py - Corregido
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.auth.models import User, Permission, Group
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from rest_framework.views import APIView
 from rest_framework import status
 from web_project import TemplateLayout
@@ -37,11 +37,24 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
         return context
 
     def get_permission_modules(self):
-        """Organizar permisos por módulos"""
+        """Organizar permisos por módulos - filtrar los innecesarios"""
         modules = {}
 
-        # Obtener todos los content types (módulos)
-        content_types = ContentType.objects.all().order_by('app_label', 'model')
+        # Apps que NO queremos mostrar
+        excluded_apps = ['admin', 'sessions', 'contenttypes']
+
+        # Permisos específicos que NO queremos mostrar
+        excluded_permissions = [
+            'add_permission', 'change_permission', 'delete_permission', 'view_permission',
+            'add_contenttype', 'change_contenttype', 'delete_contenttype', 'view_contenttype',
+            'add_session', 'change_session', 'delete_session', 'view_session',
+            'add_logentry', 'change_logentry', 'delete_logentry', 'view_logentry',
+        ]
+
+        # Obtener content types filtrados
+        content_types = ContentType.objects.exclude(
+            app_label__in=excluded_apps
+        ).order_by('app_label', 'model')
 
         for ct in content_types:
             app_name = ct.app_label
@@ -53,8 +66,13 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
                     'color': self.get_module_color(app_name)
                 }
 
-            # Obtener permisos para este content type
-            permissions = Permission.objects.filter(content_type=ct).order_by('codename')
+            # Obtener permisos filtrados para este content type
+            permissions = Permission.objects.filter(
+                content_type=ct
+            ).exclude(
+                codename__in=excluded_permissions
+            ).order_by('codename')
+
             for perm in permissions:
                 modules[app_name]['permissions'].append({
                     'id': perm.id,
@@ -63,19 +81,19 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
                     'content_type': ct.model
                 })
 
+        # Remover módulos vacíos
+        modules = {k: v for k, v in modules.items() if v['permissions']}
+
         return modules
 
     def get_module_icon(self, app_name):
         """Obtener icono según el módulo"""
         icons = {
             'auth': 'ri-user-settings-line',
-            'admin': 'ri-admin-line',
-            'contenttypes': 'ri-file-list-3-line',
-            'sessions': 'ri-time-line',
-            'notification': 'ri-notification-3-line',
             'compras': 'ri-shopping-cart-line',
             'inventario': 'ri-archive-line',
             'reportes': 'ri-bar-chart-line',
+            'notification': 'ri-notification-3-line',
         }
         return icons.get(app_name, 'ri-settings-3-line')
 
@@ -83,13 +101,10 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
         """Obtener color según el módulo"""
         colors = {
             'auth': 'primary',
-            'admin': 'danger',
-            'contenttypes': 'info',
-            'sessions': 'warning',
-            'notification': 'success',
-            'compras': 'purple',
-            'inventario': 'orange',
-            'reportes': 'cyan',
+            'compras': 'success',
+            'inventario': 'warning',
+            'reportes': 'info',
+            'notification': 'secondary',
         }
         return colors.get(app_name, 'secondary')
 
@@ -98,21 +113,32 @@ class RolePermissionsAPIView(APIView):
 
     def get(self, request, role):
         try:
-            # Validar que el rol existe
-            if role not in dict(Role.choices):
+            # Validar que el rol existe en las opciones válidas
+            valid_roles = [choice[0] for choice in Role.choices]
+            if role not in valid_roles:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Rol no válido'
+                    'error': f'Rol no válido. Roles válidos: {", ".join(valid_roles)}'
                 }, status=400)
 
-            # Obtener o crear configuración del rol
-            role_config, created = RolePermissionConfig.objects.get_or_create(
-                role=role,
-                defaults={
-                    'group': Group.objects.create(name=f"Grupo_{role}"),
-                    'description': f"Permisos para {dict(Role.choices)[role]}"
-                }
-            )
+            # Obtener o crear configuración del rol de forma segura
+            with transaction.atomic():
+                try:
+                    role_config = RolePermissionConfig.objects.get(role=role)
+                except RolePermissionConfig.DoesNotExist:
+                    # Crear grupo único
+                    group_name = f"Grupo_{role}"
+                    try:
+                        group = Group.objects.get(name=group_name)
+                    except Group.DoesNotExist:
+                        group = Group.objects.create(name=group_name)
+
+                    # Crear configuración del rol
+                    role_config = RolePermissionConfig.objects.create(
+                        role=role,
+                        group=group,
+                        description=f"Permisos para {dict(Role.choices)[role]}"
+                    )
 
             # Obtener permisos del rol
             permissions = role_config.group.permissions.all().values(
@@ -134,10 +160,10 @@ class RolePermissionsAPIView(APIView):
             })
 
         except Exception as e:
-            logger.error(f"Error getting role permissions: {str(e)}")
+            logger.error(f"Error getting role permissions for {role}: {str(e)}")
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': f'Error interno: {str(e)}'
             }, status=500)
 
 class UpdateRolePermissionsAPIView(APIView):
@@ -148,32 +174,60 @@ class UpdateRolePermissionsAPIView(APIView):
             role = request.data.get('role')
             permission_ids = request.data.get('permission_ids', [])
 
-            if not role or role not in dict(Role.choices):
+            # Validar rol
+            valid_roles = [choice[0] for choice in Role.choices]
+            if not role or role not in valid_roles:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Rol no válido'
+                    'error': f'Rol no válido. Roles válidos: {", ".join(valid_roles)}'
                 }, status=400)
 
             with transaction.atomic():
                 # Obtener o crear configuración del rol
-                role_config, created = RolePermissionConfig.objects.get_or_create(
-                    role=role,
-                    defaults={
-                        'group': Group.objects.create(name=f"Grupo_{role}"),
-                        'description': f"Permisos para {dict(Role.choices)[role]}"
-                    }
-                )
+                try:
+                    role_config = RolePermissionConfig.objects.get(role=role)
+                except RolePermissionConfig.DoesNotExist:
+                    # Crear grupo único
+                    group_name = f"Grupo_{role}"
+                    try:
+                        group = Group.objects.get(name=group_name)
+                    except Group.DoesNotExist:
+                        group = Group.objects.create(name=group_name)
+
+                    role_config = RolePermissionConfig.objects.create(
+                        role=role,
+                        group=group,
+                        description=f"Permisos para {dict(Role.choices)[role]}"
+                    )
+
+                # Validar que los permisos existen
+                permissions = Permission.objects.filter(id__in=permission_ids)
+                if len(permissions) != len(permission_ids):
+                    valid_ids = list(permissions.values_list('id', flat=True))
+                    invalid_ids = [pid for pid in permission_ids if pid not in valid_ids]
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Permisos no válidos: {invalid_ids}'
+                    }, status=400)
 
                 # Actualizar permisos del rol
-                permissions = Permission.objects.filter(id__in=permission_ids)
                 role_config.group.permissions.set(permissions)
 
                 # Contar usuarios afectados
                 affected_users = User.objects.filter(profile__role=role).count()
 
+                # Sincronizar usuarios con este rol al grupo
+                users_with_role = User.objects.filter(profile__role=role)
+                for user in users_with_role:
+                    # Remover de otros grupos de roles
+                    role_groups = Group.objects.filter(name__startswith='Grupo_')
+                    user.groups.remove(*role_groups)
+                    # Agregar al grupo correcto
+                    user.groups.add(role_config.group)
+
             return JsonResponse({
                 'success': True,
-                'message': f'Permisos actualizados para el rol {dict(Role.choices)[role]}',
+                'message': f'Permisos actualizados para el rol {dict(Role.choices)[role]}. {affected_users} usuarios sincronizados.',
                 'affected_users': affected_users
             })
 
@@ -181,7 +235,7 @@ class UpdateRolePermissionsAPIView(APIView):
             logger.error(f"Error updating role permissions: {str(e)}")
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': f'Error interno: {str(e)}'
             }, status=500)
 
 class UsersByRoleAPIView(APIView):
@@ -189,10 +243,12 @@ class UsersByRoleAPIView(APIView):
 
     def get(self, request, role):
         try:
-            if role not in dict(Role.choices):
+            # Validar rol
+            valid_roles = [choice[0] for choice in Role.choices]
+            if role not in valid_roles:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Rol no válido'
+                    'error': f'Rol no válido. Roles válidos: {", ".join(valid_roles)}'
                 }, status=400)
 
             users = User.objects.filter(
@@ -208,15 +264,15 @@ class UsersByRoleAPIView(APIView):
                     'role': role,
                     'role_display': dict(Role.choices)[role],
                     'users': list(users),
-                    'count': users.count()
+                    'count': len(users)
                 }
             })
 
         except Exception as e:
-            logger.error(f"Error getting users by role: {str(e)}")
+            logger.error(f"Error getting users by role {role}: {str(e)}")
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': f'Error interno: {str(e)}'
             }, status=500)
 
 class RoleStatsAPIView(APIView):
@@ -257,7 +313,7 @@ class RoleStatsAPIView(APIView):
             logger.error(f"Error getting role stats: {str(e)}")
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': f'Error interno: {str(e)}'
             }, status=500)
 
 class SyncUserRolesAPIView(APIView):
@@ -269,42 +325,57 @@ class SyncUserRolesAPIView(APIView):
             errors = []
 
             with transaction.atomic():
-                for profile in User.objects.select_related('profile').all():
-                    if hasattr(profile, 'profile') and profile.profile:
+                # Obtener todos los grupos de roles
+                role_groups = Group.objects.filter(name__startswith='Grupo_')
+
+                for user in User.objects.select_related('profile').all():
+                    if hasattr(user, 'profile') and user.profile:
                         try:
                             # Remover de todos los grupos de roles
-                            role_groups = Group.objects.filter(
-                                rolepermissionconfig__isnull=False
-                            )
-                            profile.groups.remove(*role_groups)
+                            user.groups.remove(*role_groups)
 
-                            # Asignar al grupo del rol actual
-                            role_config, created = RolePermissionConfig.objects.get_or_create(
-                                role=profile.profile.role,
-                                defaults={
-                                    'group': Group.objects.create(
-                                        name=f"Grupo_{profile.profile.role}"
-                                    ),
-                                    'description': f"Permisos para {dict(Role.choices)[profile.profile.role]}"
-                                }
-                            )
+                            # Obtener o crear configuración del rol del usuario
+                            try:
+                                role_config = RolePermissionConfig.objects.get(
+                                    role=user.profile.role
+                                )
+                            except RolePermissionConfig.DoesNotExist:
+                                # Crear configuración si no existe
+                                group_name = f"Grupo_{user.profile.role}"
+                                try:
+                                    group = Group.objects.get(name=group_name)
+                                except Group.DoesNotExist:
+                                    group = Group.objects.create(name=group_name)
 
-                            profile.groups.add(role_config.group)
+                                role_config = RolePermissionConfig.objects.create(
+                                    role=user.profile.role,
+                                    group=group,
+                                    description=f"Permisos para {dict(Role.choices)[user.profile.role]}"
+                                )
+
+                            # Asignar al grupo del rol
+                            user.groups.add(role_config.group)
                             synced_users += 1
 
                         except Exception as e:
-                            errors.append(f"Error con usuario {profile.username}: {str(e)}")
+                            error_msg = f"Error con usuario {user.username}: {str(e)}"
+                            errors.append(error_msg)
+                            logger.error(error_msg)
+
+            message = f'Se sincronizaron {synced_users} usuarios'
+            if errors:
+                message += f' con {len(errors)} errores'
 
             return JsonResponse({
                 'success': True,
-                'message': f'Se sincronizaron {synced_users} usuarios',
+                'message': message,
                 'synced_users': synced_users,
-                'errors': errors
+                'errors': errors[:5]  # Solo mostrar primeros 5 errores
             })
 
         except Exception as e:
             logger.error(f"Error syncing user roles: {str(e)}")
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': f'Error interno: {str(e)}'
             }, status=500)

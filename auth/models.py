@@ -60,8 +60,8 @@ class Profile(models.Model):
         return self.user.username
 
     class Meta:
-        verbose_name = "User Profile"
-        verbose_name_plural = "User Profiles"
+        verbose_name = "Perfil de usuarios"
+        verbose_name_plural = "Perfiles"
         ordering = ['-created_at']
 
     @property
