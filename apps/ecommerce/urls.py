@@ -2,6 +2,7 @@ from django.urls import path, include
 from .views import eCommerceView
 from django.contrib.auth.decorators import login_required
 from apps.ecommerce.sales.views import SalePOSView
+from apps.ecommerce.purchasing.views import *
 from apps.ecommerce.cotizacion.views import(
     EnvioCotizacionListCreateAPIView,
     ImportCotizacionResponseView,
@@ -11,14 +12,35 @@ from apps.ecommerce.cotizacion.views import(
     CotizacionCompareView
 )
 urlpatterns = [
+    path('purchasing/', include('apps.ecommerce.purchasing.urls')),
     path('api/', include('apps.ecommerce.categories.urls')),
     path('api/', include('apps.ecommerce.products.urls')),
     path('api/', include('apps.ecommerce.suppliers.urls')),
     path('api/', include('apps.ecommerce.requirements.urls')),
     path('api/', include('apps.ecommerce.cotizacion.urls')),
     path('api/', include('apps.ecommerce.customers.urls')),
-    path('api/', include('apps.ecommerce.purchasing.urls')),
     path('api/', include('apps.ecommerce.sales.urls')),
+        # Vistas de plantillas
+    path(
+        "app/purchase-orders/list/",
+        login_required(PurchaseOrderListView.as_view()),
+        name="app-purchase-orders-list",
+    ),
+    path(
+        "app/purchase-orders/create/",
+        login_required(PurchaseOrderCreateView.as_view()),
+        name="app-purchase-orders-create",
+    ),
+    path(
+        "app/purchase-orders/detail/<int:po_id>/",
+        login_required(PurchaseOrderDetailView.as_view()),
+        name="app-purchase-orders-detail",
+    ),
+    path(
+        "app/purchase-orders/dashboard/",
+        login_required(PurchaseOrderDashboardView.as_view()),
+        name="app-purchase-orders-dashboard",
+    ),
     path(
         "app/ecommerce/dashboard/",
         login_required(eCommerceView.as_view(template_name="app_ecommerce_dashboard.html")),

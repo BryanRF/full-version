@@ -1,0 +1,340 @@
+<!-- apps/ecommerce/templates/app_purchase_orders_create.html -->
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Crear Orden de Compra{% endblock %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+<script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'js/purchase-orders-create.js' %}"></script>
+{% endblock page_js %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+  <div class="d-flex flex-column justify-content-center">
+    <h4 class="mb-1">Crear Nueva Orden de Compra</h4>
+    <p class="mb-0">Complete la información para generar una nueva orden de compra</p>
+  </div>
+  <div class="d-flex align-content-center flex-wrap gap-2">
+    <a href="{% url 'app-purchase-orders-list' %}" class="btn btn-outline-secondary">
+      <i class="ri-arrow-left-line me-1"></i>Volver
+    </a>
+    <button type="button" class="btn btn-outline-info" id="previewBtn" disabled>
+      <i class="ri-eye-line me-1"></i>Vista Previa
+    </button>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Formulario Principal -->
+  <div class="col-12 col-lg-8">
+    <form id="createPurchaseOrderForm">
+      <!-- Información Básica -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="ri-information-line me-2"></i>Información Básica
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 mb-4">
+              <label for="supplier" class="form-label">Proveedor <span class="text-danger">*</span></label>
+              <select id="supplier" name="supplier" class="form-select select2" required>
+                <option value="">Seleccionar proveedor...</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-4">
+              <label for="expectedDelivery" class="form-label">Fecha Entrega Esperada <span class="text-danger">*</span></label>
+              <input type="text" id="expectedDelivery" name="expected_delivery" class="form-control flatpickr-input" placeholder="Seleccionar fecha..." required />
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-4">
+              <label for="priority" class="form-label">Prioridad</label>
+              <select id="priority" name="priority" class="form-select">
+                <option value="normal">Normal</option>
+                <option value="high">Alta</option>
+                <option value="urgent">Urgente</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-4">
+              <label for="paymentTerms" class="form-label">Términos de Pago</label>
+              <input type="text" id="paymentTerms" name="payment_terms" class="form-control" placeholder="Ej: 30 días" />
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="notes" class="form-label">Notas</label>
+            <textarea id="notes" name="notes" class="form-control" rows="3" placeholder="Instrucciones especiales o comentarios..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Productos -->
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">
+            <i class="ri-shopping-bag-line me-2"></i>Productos
+          </h5>
+          <button type="button" class="btn btn-primary btn-sm" id="addProductBtn">
+            <i class="ri-add-line me-1"></i>Agregar Producto
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered" id="productsTable">
+              <thead class="table-light">
+                <tr>
+                  <th width="35%">Producto</th>
+                  <th width="15%">Cantidad</th>
+                  <th width="15%">P. Unitario</th>
+                  <th width="15%">Subtotal</th>
+                  <th width="20%">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="productsTableBody">
+                <!-- Los productos se agregarán dinámicamente -->
+              </tbody>
+              <tfoot>
+                <tr class="table-secondary">
+                  <td colspan="3" class="text-end fw-bold">Total:</td>
+                  <td class="fw-bold" id="totalAmount">S/.0.00</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Empty state -->
+          <div id="emptyProductsState" class="text-center py-5">
+            <i class="ri-shopping-cart-line ri-48px text-muted mb-3"></i>
+            <h6 class="text-muted">No hay productos agregados</h6>
+            <p class="text-muted mb-4">Agregue productos para crear la orden de compra</p>
+            <button type="button" class="btn btn-primary" id="addFirstProductBtn">
+              <i class="ri-add-line me-1"></i>Agregar Primer Producto
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-end gap-3">
+            <button type="button" class="btn btn-outline-secondary" id="saveDraftBtn">
+              <i class="ri-draft-line me-1"></i>Guardar como Borrador
+            </button>
+            <button type="submit" class="btn btn-primary" id="createOrderBtn" disabled>
+              <i class="ri-check-line me-1"></i>Crear Orden de Compra
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Panel Lateral -->
+  <div class="col-12 col-lg-4">
+    <!-- Información del Proveedor -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="ri-user-line me-2"></i>Información del Proveedor
+        </h5>
+      </div>
+      <div class="card-body" id="supplierInfo">
+        <div class="text-center text-muted py-4">
+          <i class="ri-user-line ri-48px mb-3"></i>
+          <p class="mb-0">Seleccione un proveedor para ver su información</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resumen de la Orden -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="ri-file-list-line me-2"></i>Resumen
+        </h5>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="text-muted">Total de Productos:</span>
+          <span class="fw-medium" id="summaryTotalProducts">0</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="text-muted">Cantidad Total:</span>
+          <span class="fw-medium" id="summaryTotalQuantity">0</span>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted">Monto Total:</span>
+          <span class="fw-bold text-primary" id="summaryTotalAmount">S/.0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Validaciones -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Validaciones</h5>
+      </div>
+      <div class="card-body">
+        <div class="validation-item mb-3" id="validationSupplier">
+          <div class="d-flex align-items-center">
+            <i class="ri-user-line me-2 text-muted"></i>
+            <span>Proveedor seleccionado</span>
+            <i class="ri-close-circle-line ms-auto text-danger" id="supplierIcon"></i>
+          </div>
+        </div>
+        <div class="validation-item mb-3" id="validationDate">
+          <div class="d-flex align-items-center">
+            <i class="ri-calendar-line me-2 text-muted"></i>
+            <span>Fecha de entrega</span>
+            <i class="ri-close-circle-line ms-auto text-danger" id="dateIcon"></i>
+          </div>
+        </div>
+        <div class="validation-item mb-3" id="validationProducts">
+          <div class="d-flex align-items-center">
+            <i class="ri-shopping-bag-line me-2 text-muted"></i>
+            <span>Al menos 1 producto</span>
+            <i class="ri-close-circle-line ms-auto text-danger" id="productsIcon"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para Agregar Producto -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agregar Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addProductForm">
+          <div class="row">
+            <div class="col-md-12 mb-4">
+              <label for="productSelect" class="form-label">Producto <span class="text-danger">*</span></label>
+              <select id="productSelect" name="product" class="form-select select2-modal" required>
+                <option value="">Buscar producto por código o nombre...</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-4">
+              <label for="productQuantity" class="form-label">Cantidad <span class="text-danger">*</span></label>
+              <input type="number" id="productQuantity" name="quantity" class="form-control" min="1" step="1" required />
+            </div>
+            <div class="col-md-6 mb-4">
+              <label for="productPrice" class="form-label">Precio Unitario <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">S/.</span>
+                <input type="number" id="productPrice" name="price" class="form-control" min="0" step="0.01" required />
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="productNotes" class="form-label">Notas del Producto</label>
+            <textarea id="productNotes" name="product_notes" class="form-control" rows="2" placeholder="Especificaciones adicionales..."></textarea>
+          </div>
+
+          <!-- Información del Producto Seleccionado -->
+          <div id="selectedProductInfo" class="d-none">
+            <div class="alert alert-info">
+              <h6 class="alert-heading">Información del Producto</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <small><strong>Código:</strong> <span id="productCode">-</span></small><br>
+                  <small><strong>Categoría:</strong> <span id="productCategory">-</span></small>
+                </div>
+                <div class="col-md-6">
+                  <small><strong>Stock:</strong> <span id="productStock">-</span></small><br>
+                  <small><strong>U. Medida:</strong> <span id="productUnit">-</span></small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" form="addProductForm" class="btn btn-primary">
+          <i class="ri-add-line me-1"></i>Agregar Producto
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Vista Previa -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Vista Previa - Orden de Compra</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="previewContent">
+          <!-- El contenido se cargará dinámicamente -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="confirmCreateBtn">
+          <i class="ri-check-line me-1"></i>Confirmar y Crear
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="text-center text-white">
+      <div class="spinner-border mb-3" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <div id="loadingText">Creando orden de compra...</div>
+    </div>
+  </div>
+</div>
+
+<style>
+.validation-item .ri-check-circle-line {
+  color: #28a745 !important;
+}
+.validation-item .ri-close-circle-line {
+  color: #dc3545 !important;
+}
+.select2-modal {
+  width: 100% !important;
+}
+</style>
+{% endblock %}

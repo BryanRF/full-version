@@ -30,25 +30,5 @@ urlpatterns = [
     # Incluir rutas del router
     path('', include(router.urls)),
     
-    # Vistas de plantillas
-    path(
-        "app/purchase-orders/list/",
-        login_required(PurchaseOrderListView.as_view()),
-        name="app-purchase-orders-list",
-    ),
-    path(
-        "app/purchase-orders/create/",
-        login_required(PurchaseOrderCreateView.as_view()),
-        name="app-purchase-orders-create",
-    ),
-    path(
-        "app/purchase-orders/detail/<int:po_id>/",
-        login_required(PurchaseOrderDetailView.as_view()),
-        name="app-purchase-orders-detail",
-    ),
-    path(
-        "app/purchase-orders/dashboard/",
-        login_required(PurchaseOrderDashboardView.as_view()),
-        name="app-purchase-orders-dashboard",
-    ),
+
 ]

@@ -78,6 +78,17 @@
               "slug": "app-cotizacion-list"
             }
           ]
+        },
+        {
+          "name": "Compras",
+          "slug": "app-purchase-orders",
+          "submenu": [
+            {
+              "url": "app-purchase-orders-list",
+              "name": "Listado Compras",
+              "slug": "app-purchase-orders-list"
+            }
+          ]
         }
       ]
     },
@@ -137,9 +148,9 @@
       "slug": "app-access",
       "submenu": [
         {
-          "url": "app-access-roles",
+          "url": "role-permissions",
           "name": "Permisos",
-          "slug": "app-access-roles"
+          "slug": "role-permissions"
         }
       ]
     }

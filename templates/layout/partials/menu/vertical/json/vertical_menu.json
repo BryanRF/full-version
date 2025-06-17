@@ -78,6 +78,17 @@
               "slug": "app-cotizacion-list"
             }
           ]
+        },
+        {
+          "name": "Compras",
+          "slug": "app-purchase-orders",
+          "submenu": [
+            {
+              "url": "app-purchase-orders-list",
+              "name": "Listado Compras",
+              "slug": "app-purchase-orders-list"
+            }
+          ]
         }
       ]
     },
