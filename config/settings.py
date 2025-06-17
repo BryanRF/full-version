@@ -227,17 +227,17 @@ EMAIL_HOST_PASSWORD = "ajjvniyyqelwvsvp"
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
 # Enable i18n and set the list of supported languages
-# LANGUAGES = [
-#     ("en", _("English")),
-#     ("fr", _("French")),
-#     ("ar", _("Arabic")),
-#     ("de", _("German")),
-#     # Add more languages as needed
-# ]
+LANGUAGES = [
+    ("en", _("English")),
+    ("fr", _("French")),
+    ("ar", _("Arabic")),
+    ("de", _("German")),
+    # Add more languages as needed
+]
 
 # Set default language
 # ! Make sure you have cleared the browser cache after changing the default language
-LANGUAGE_CODE = 'es-es'
+LANGUAGE_CODE = 'en'
 USE_I18N = True
 USE_L10N = True
 TIME_ZONE = 'America/Lima'
