@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "channels",
     "apps.dashboards",
     "apps.layouts",
     "apps.front_pages",
@@ -101,7 +102,11 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
