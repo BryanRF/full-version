@@ -13,6 +13,7 @@
 
 {% block vendor_js %}
 {{ block.super }}
+<script src="{% static 'vendor/libs/moment/moment.js' %}"></script>
 <script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
 <script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
 {% endblock vendor_js %}
@@ -135,38 +136,19 @@
                 <th>Producto</th>
                 <th>Cant. Ordenada</th>
                 <th>Cant. Recibida</th>
-                <th>Pendiente</th>
                 <th>Precio Unit.</th>
-                <th>Total</th>
+                <th>Subtotal</th>
                 <th>Estado</th>
               </tr>
             </thead>
             <tbody id="itemsTableBody">
               <tr>
-                <td colspan="8" class="text-center py-4">
-                  <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                  </div>
+                <td colspan="7" class="text-center py-4">
+                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                  Cargando productos...
                 </td>
               </tr>
             </tbody>
-            <tfoot class="table-light">
-              <tr>
-                <td colspan="6" class="text-end"><strong>Subtotal:</strong></td>
-                <td><strong id="subtotalValue">S/.0.00</strong></td>
-                <td></td>
-              </tr>
-              <tr>
-                <td colspan="6" class="text-end"><strong>IGV (18%):</strong></td>
-                <td><strong id="taxValue">S/.0.00</strong></td>
-                <td></td>
-              </tr>
-              <tr class="table-success">
-                <td colspan="6" class="text-end"><strong>TOTAL:</strong></td>
-                <td><strong id="totalValue">S/.0.00</strong></td>
-                <td></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       </div>
@@ -175,68 +157,48 @@
 
   <!-- Sidebar -->
   <div class="col-md-4">
-    <!-- Progress Card -->
+    <!-- Order Summary -->
     <div class="card mb-6">
       <div class="card-header">
-        <h6 class="card-title mb-0">Progreso de Entrega</h6>
+        <h5 class="card-title mb-0">Resumen</h5>
       </div>
       <div class="card-body">
-        <div class="d-flex justify-content-between mb-2">
-          <span>Completado</span>
-          <span id="completionPercentage">0%</span>
-        </div>
-        <div class="progress mb-4">
-          <div class="progress-bar" id="progressBar" style="width: 0%"></div>
-        </div>
+        <dl class="row mb-0">
+          <dt class="col-6">Prioridad:</dt>
+          <dd class="col-6" id="priority">-</dd>
+          
+          <dt class="col-6">Términos de Pago:</dt>
+          <dd class="col-6" id="paymentTerms">-</dd>
+          
+          <dt class="col-6">Estado:</dt>
+          <dd class="col-6" id="currentStatus">-</dd>
+          
+          <dt class="col-6">Creado:</dt>
+          <dd class="col-6" id="createdAt">-</dd>
+        </dl>
         
-        <div class="row text-center">
-          <div class="col-6">
-            <div class="border-end">
-              <h5 class="mb-1" id="totalItemsCount">0</h5>
-              <small class="text-muted">Total Items</small>
-            </div>
-          </div>
-          <div class="col-6">
-            <h5 class="mb-1" id="pendingItemsCount">0</h5>
-            <small class="text-muted">Pendientes</small>
-          </div>
-        </div>
+        <hr>
+        
+        <dl class="row mb-0">
+          <dt class="col-6">Subtotal:</dt>
+          <dd class="col-6" id="subtotalAmount">S/.0.00</dd>
+          
+          <dt class="col-6">IGV (18%):</dt>
+          <dd class="col-6" id="taxAmount">S/.0.00</dd>
+          
+          <dt class="col-6"><strong>Total:</strong></dt>
+          <dd class="col-6"><strong id="totalAmountSidebar">S/.0.00</strong></dd>
+        </dl>
       </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="card mb-6">
+    <!-- Notes -->
+    <div class="card" id="notesCard" style="display: none;">
       <div class="card-header">
-        <h6 class="card-title mb-0">Acciones Rápidas</h6>
+        <h5 class="card-title mb-0">Notas</h5>
       </div>
       <div class="card-body">
-        <div class="d-grid gap-2" id="quickActions">
-          <!-- Se cargan dinámicamente según el estado -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Activity Timeline -->
-    <div class="card">
-      <div class="card-header">
-        <h6 class="card-title mb-0">Historial</h6>
-      </div>
-      <div class="card-body">
-        <div class="timeline" id="activityTimeline">
-          <div class="timeline-item">
-            <div class="timeline-indicator timeline-indicator-primary">
-              <i class="ri-add-line"></i>
-            </div>
-            <div class="timeline-event">
-              <div class="timeline-header mb-1">
-                <h6 class="mb-0">Orden Creada</h6>
-                <small class="text-muted" id="createdDate">-</small>
-              </div>
-              <p class="mb-0 text-muted">Orden de compra generada</p>
-            </div>
-          </div>
-          <!-- Más items se agregan dinámicamente -->
-        </div>
+        <p class="mb-0" id="notes">-</p>
       </div>
     </div>
   </div>
@@ -252,32 +214,14 @@
       </div>
       <div class="modal-body">
         <form id="receiveItemsForm">
-          <div class="alert alert-info">
-            <i class="ri-information-line me-2"></i>
-            Registre las cantidades recibidas. Solo ingrese las cantidades que está recibiendo en este momento.
-          </div>
-          
-          <div class="table-responsive">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Ordenado</th>
-                  <th>Ya Recibido</th>
-                  <th>Pendiente</th>
-                  <th>Recibir Ahora</th>
-                </tr>
-              </thead>
-              <tbody id="receiveItemsTableBody">
-                <!-- Se carga dinámicamente -->
-              </tbody>
-            </table>
+          <div id="receiveItemsList">
+            <!-- Items will be loaded dynamically -->
           </div>
         </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-success" id="confirmReceiveBtn">
+        <button type="button" class="btn btn-primary" id="confirmReceiveBtn">
           <i class="ri-check-line me-1"></i>Confirmar Recepción
         </button>
       </div>
@@ -297,11 +241,25 @@
   </div>
 </div>
 
-<script>
-// Configuración inicial desde el template
-window.PO_CONFIG = {
-    poId: {% if purchase_order %}{{ purchase_order.id }}{% else %}null{% endif %},
-    csrfToken: '{{ csrf_token }}'
-};
-</script>
+<style>
+.avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.table th {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+}
+
+#loadingOverlay {
+  backdrop-filter: blur(4px);
+}
+</style>
 {% endblock %}

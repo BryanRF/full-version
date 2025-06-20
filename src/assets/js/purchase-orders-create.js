@@ -551,10 +551,21 @@ $(document).ready(function() {
             },
             data: JSON.stringify(formData),
             success: function(response) {
-                toastr.success(isDraft ? 'Borrador guardado correctamente' : 'Orden de compra creada correctamente');
-                setTimeout(() => {
-                    window.location.href = `/purchasing/app/purchase-orders/detail/${response.id}/`;
-                }, 1000);
+
+             if (orderId) {
+                    toastr.success(isDraft ? 'Borrador guardado correctamente' : 'Orden de compra creada correctamente');
+                    setTimeout(() => {
+                        window.location.href = `/app/purchase-orders/detail/${orderId}/`;
+                    }, 1000);
+                } else {
+                    console.error('❌ No se pudo extraer el ID de la respuesta:', response);
+                    toastr.error('Orden creada pero no se pudo obtener el ID para redireccionar');
+                    // Fallback: ir a la lista
+                    setTimeout(() => {
+                        window.location.href = '/app/purchase-orders/list/';
+                    }, 2000);
+                }
+
             },
             error: function(xhr) {
                 console.error('Error creating purchase order:', xhr);

@@ -72,6 +72,7 @@ class PurchaseOrderListCreateAPIView(generics.ListCreateAPIView):
             queryset = queryset.filter(order_date__lte=date_to)
         
         return queryset.order_by('-created_at')
+    
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
     """ViewSet completo para operaciones CRUD de órdenes de compra"""
     queryset = PurchaseOrder.objects.all().select_related('supplier', 'created_by').prefetch_related('items')
@@ -115,6 +116,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
     """ViewSet para items de órdenes de compra"""
     queryset = PurchaseOrderItem.objects.all().select_related('purchase_order', 'product')
