@@ -8,6 +8,10 @@ from .views import (
     PurchaseOrderViewSet,
     PurchaseOrderItemViewSet,
     PurchaseOrderListCreateAPIView,
+    PurchasingProductDetailAPIView,
+    PurchasingProductsAPIView,
+    PurchasingSupplierDetailAPIView,
+    PurchasingSuppliersAPIView,
     QuickPurchaseOrderAPIView,
     SupplierPurchaseHistoryAPIView,
     PurchaseOrderListView,
@@ -26,6 +30,15 @@ urlpatterns = [
     path('purchase-orders/data/', PurchaseOrderListCreateAPIView.as_view(), name='purchase-orders-data'),
     path('purchase-orders/quick-create/', QuickPurchaseOrderAPIView.as_view(), name='quick-purchase-order'),
     path('suppliers/<int:supplier_id>/purchase-history/', SupplierPurchaseHistoryAPIView.as_view(), name='supplier-purchase-history'),
+    
+    
+        # ✅ NUEVAS RUTAS PARA SUPPLIERS
+    path('api/suppliers/', PurchasingSuppliersAPIView.as_view(), name='purchasing-suppliers'),
+    path('api/suppliers/<int:pk>/', PurchasingSupplierDetailAPIView.as_view(), name='purchasing-supplier-detail'),
+    
+    # ✅ NUEVAS RUTAS PARA PRODUCTS
+    path('api/products/', PurchasingProductsAPIView.as_view(), name='purchasing-products'),
+    path('api/products/<int:pk>/', PurchasingProductDetailAPIView.as_view(), name='purchasing-product-detail'),
     
     # Incluir rutas del router
     path('', include(router.urls)),

@@ -6,31 +6,32 @@
 $(document).ready(function() {
     'use strict';
 
-    let selectedProducts = [];
+    // Variables globales
     let currentSupplier = null;
+    let selectedProducts = [];
+
     // URLs de la API
     const API_URLS = {
-        suppliers: '/api/suppliers/active/',
-        products: '/api/products/active/',
-        createPO: '/purchasing/purchase-orders/',
-        supplierDetails: '/purchasing/suppliers/{id}/',
-        productDetails: '/api/products/{id}/'
+        suppliers: '/purchasing/api/suppliers/',
+        products: '/purchasing/api/products/',
+        createPO: '/purchasing/purchase-orders/',  // ✅ URL correcta del router
+        supplierDetail: '/purchasing/api/suppliers/{id}/'
     };
 
     // Inicialización
     init();
 
     function init() {
-        initializeSelects();
+        initializeSelect2();
         initializeDatePickers();
         bindEvents();
         validateForm();
     }
 
-    function initializeSelects() {
+    function initializeSelect2() {
         // Inicializar Select2 para proveedores
         $('#supplier').select2({
-            placeholder: 'Seleccionar proveedor...',
+            placeholder: 'Buscar proveedor por nombre...',
             allowClear: true,
             ajax: {
                 url: API_URLS.suppliers,
@@ -47,7 +48,7 @@ $(document).ready(function() {
                     return {
                         results: data.results.map(supplier => ({
                             id: supplier.id,
-                            text: `${supplier.company_name} - ${supplier.contact_person || 'Sin contacto'}`,
+                            text: supplier.name,
                             supplier: supplier
                         })),
                         pagination: {
@@ -160,7 +161,6 @@ $(document).ready(function() {
         });
 
         $('#confirmCreateBtn').on('click', function() {
-            $('#previewModal').modal('hide');
             createPurchaseOrder();
         });
 
@@ -175,119 +175,115 @@ $(document).ready(function() {
             const index = $(this).data('index');
             editProduct(index);
         });
+
+        // Calcular subtotal en modal
+        $('#quantity, #unitPrice').on('input', function() {
+            calculateProductSubtotal();
+        });
+
+        // Reset modal cuando se cierra
+        $('#addProductModal').on('hidden.bs.modal', function() {
+            resetProductModal();
+        });
     }
 
     function loadSupplierInfo(supplier) {
-        const html = `
-            <div class="text-center mb-3">
-                <div class="avatar avatar-lg mx-auto mb-3">
-                    <span class="avatar-initial rounded bg-label-primary fs-2">
-                        ${supplier.company_name.charAt(0).toUpperCase()}
-                    </span>
-                </div>
-                <h6 class="mb-1">${supplier.company_name}</h6>
-                <p class="text-muted mb-0">${supplier.contact_person || 'Sin contacto'}</p>
-            </div>
-            
-            <hr>
-            
-            <div class="info-item mb-3">
-                <i class="ri-mail-line me-2 text-muted"></i>
-                <span>${supplier.email || 'Sin email'}</span>
-            </div>
-            
-            <div class="info-item mb-3">
-                <i class="ri-phone-line me-2 text-muted"></i>
-                <span>${supplier.phone || 'Sin teléfono'}</span>
-            </div>
-            
-            <div class="info-item mb-3">
-                <i class="ri-map-pin-line me-2 text-muted"></i>
-                <span>${supplier.address || 'Sin dirección'}</span>
-            </div>
-            
-            ${supplier.payment_terms ? `
-                <div class="info-item mb-3">
-                    <i class="ri-credit-card-line me-2 text-muted"></i>
-                    <span>${supplier.payment_terms}</span>
-                </div>
-            ` : ''}
-        `;
+        $('#supplierContact').text(supplier.contact_person || '-');
+        $('#supplierEmail').text(supplier.email || '-');
+        $('#supplierPhone').text(supplier.phone || '-');
+        $('#supplierPaymentTerms').text(supplier.payment_terms || '-');
+        $('#supplierInfo').removeClass('d-none');
         
-        $('#supplierInfo').html(html);
+        // Limpiar select de productos para que se actualice con el nuevo proveedor
+        $('#productSelect').val(null).trigger('change');
     }
 
     function clearSupplierInfo() {
-        $('#supplierInfo').html(`
-            <div class="text-center text-muted py-4">
-                <i class="ri-user-line ri-48px mb-3"></i>
-                <p class="mb-0">Seleccione un proveedor para ver su información</p>
-            </div>
-        `);
+        $('#supplierInfo').addClass('d-none');
     }
 
     function loadProductInfo(product) {
         $('#productCode').text(product.code || '-');
-        $('#productCategory').text(product.category?.name || '-');
-        $('#productStock').text(product.stock || '0');
+        $('#productStock').text(product.current_stock || '-');
+        $('#productPrice').text(product.last_purchase_price ? `s/. ${product.last_purchase_price}` : '-');
         $('#productUnit').text(product.unit_of_measure || '-');
+        $('#productInfo').removeClass('d-none');
         
-        // Sugerir precio si está disponible
-        if (product.price) {
-            $('#productPrice').val(product.price);
+        // Establecer precio sugerido
+        if (product.last_purchase_price) {
+            $('#unitPrice').val(product.last_purchase_price);
         }
         
-        $('#selectedProductInfo').removeClass('d-none');
+        calculateProductSubtotal();
+    }
+
+    function calculateProductSubtotal() {
+        const quantity = parseFloat($('#quantity').val()) || 0;
+        const unitPrice = parseFloat($('#unitPrice').val()) || 0;
+        const subtotal = quantity * unitPrice;
+
+        $('#productSubtotal').text(`s/. ${subtotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}`);
     }
 
     function addProductToOrder() {
-        const productSelect = $('#productSelect');
-        const quantity = parseInt($('#productQuantity').val());
-        const price = parseFloat($('#productPrice').val());
+        const productData = $('#productSelect').select2('data')[0];
+        if (!productData) {
+            toastr.error('Seleccione un producto');
+            return;
+        }
+
+        const quantity = parseFloat($('#quantity').val());
+        const unitPrice = parseFloat($('#unitPrice').val());
         const notes = $('#productNotes').val();
 
-        if (!productSelect.val() || !quantity || !price) {
-            toastr.error('Complete todos los campos requeridos');
+        if (!quantity || quantity <= 0) {
+            toastr.error('La cantidad debe ser mayor a 0');
             return;
         }
 
-        const selectedData = productSelect.select2('data')[0];
-        const product = selectedData.product;
+        if (!unitPrice || unitPrice <= 0) {
+            toastr.error('El precio unitario debe ser mayor a 0');
+            return;
+        }
 
         // Verificar si el producto ya existe
-        const existingIndex = selectedProducts.findIndex(p => p.product.id === product.id);
-        if (existingIndex !== -1) {
-            toastr.warning('Este producto ya está agregado');
-            return;
+        const existingIndex = selectedProducts.findIndex(p => p.product_id === productData.product.id);
+        
+        if (existingIndex >= 0) {
+            // Actualizar producto existente
+            selectedProducts[existingIndex] = {
+                ...selectedProducts[existingIndex],
+                quantity: quantity,
+                unit_price: unitPrice,
+                subtotal: quantity * unitPrice,
+                notes: notes
+            };
+            toastr.success('Producto actualizado');
+        } else {
+            // Agregar nuevo producto
+            selectedProducts.push({
+                product_id: productData.product.id,
+                product_name: productData.product.name,
+                product_code: productData.product.code,
+                quantity: quantity,
+                unit_price: unitPrice,
+                subtotal: quantity * unitPrice,
+                notes: notes
+            });
+            toastr.success('Producto agregado');
         }
 
-        const productItem = {
-            product: product,
-            quantity: quantity,
-            unit_price: price,
-            notes: notes,
-            subtotal: quantity * price
-        };
-
-        selectedProducts.push(productItem);
         updateProductsTable();
-        updateSummary();
+        updateTotals();
         validateForm();
-
-        // Cerrar modal y limpiar formulario
         $('#addProductModal').modal('hide');
-        $('#addProductForm')[0].reset();
-        $('#productSelect').val(null).trigger('change');
-        $('#selectedProductInfo').addClass('d-none');
-
-        toastr.success('Producto agregado correctamente');
     }
 
     function removeProduct(index) {
         Swal.fire({
-            title: '¿Eliminar producto?',
-            text: 'Esta acción no se puede deshacer',
-            icon: 'question',
+            title: '¿Está seguro?',
+            text: "Se eliminará este producto de la orden",
+            icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sí, eliminar',
             cancelButtonText: 'Cancelar'
@@ -295,7 +291,7 @@ $(document).ready(function() {
             if (result.isConfirmed) {
                 selectedProducts.splice(index, 1);
                 updateProductsTable();
-                updateSummary();
+                updateTotals();
                 validateForm();
                 toastr.success('Producto eliminado');
             }
@@ -306,50 +302,58 @@ $(document).ready(function() {
         const product = selectedProducts[index];
         
         // Cargar datos en el modal
-        $('#productSelect').empty().append(new Option(
-            `${product.product.code} - ${product.product.name}`,
-            product.product.id,
+        $('#productSelect').append(new Option(
+            `${product.product_code} - ${product.product_name}`,
+            product.product_id,
             true,
             true
         )).trigger('change');
         
-        $('#productQuantity').val(product.quantity);
-        $('#productPrice').val(product.unit_price);
+        $('#quantity').val(product.quantity);
+        $('#unitPrice').val(product.unit_price);
         $('#productNotes').val(product.notes);
         
-        // Remover producto temporal
-        selectedProducts.splice(index, 1);
-        updateProductsTable();
-        updateSummary();
-        
+        calculateProductSubtotal();
         $('#addProductModal').modal('show');
+        
+        // Marcar como edición para actualizar en lugar de agregar
+        $('#addProductModal').data('editing-index', index);
     }
 
     function updateProductsTable() {
-        const tbody = $('#productsTableBody');
+        const tbody = $('#productsTable tbody');
         
         if (selectedProducts.length === 0) {
-            tbody.empty();
-            $('#emptyProductsState').show();
-            $('#productsTable').hide();
+            tbody.html(`
+                <tr id="emptyProductsRow">
+                    <td colspan="6" class="text-center py-5">
+                        <div class="empty-state">
+                            <i class="ri-shopping-bag-line ri-2x text-muted mb-3"></i>
+                            <p class="text-muted mb-3">No hay productos agregados</p>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addFirstProductBtn">
+                                <i class="ri-add-line me-1"></i>Agregar Primer Producto
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `);
+            $('#totalsSection').hide();
             return;
         }
-
-        $('#emptyProductsState').hide();
-        $('#productsTable').show();
 
         const html = selectedProducts.map((item, index) => `
             <tr>
                 <td>
-                    <div>
-                        <strong>${item.product.name}</strong>
-                        <br><small class="text-muted">${item.product.code}</small>
-                        ${item.notes ? `<br><small class="text-info">${item.notes}</small>` : ''}
+                    <div class="d-flex flex-column">
+                        <strong>${item.product_name}</strong>
+                        <small class="text-muted">${item.product_code}</small>
+                        ${item.notes ? `<small class="text-info">${item.notes}</small>` : ''}
                     </div>
                 </td>
                 <td class="text-center">${item.quantity}</td>
-                <td class="text-end">S/.${item.unit_price.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-                <td class="text-end fw-bold">S/.${item.subtotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                <td class="text-end">s/. ${item.unit_price.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                <td class="text-end fw-bold">s/. ${item.subtotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                <td class="text-center">${item.notes || '-'}</td>
                 <td class="text-center">
                     <div class="btn-group btn-group-sm">
                         <button type="button" class="btn btn-outline-info edit-product" data-index="${index}" title="Editar">
@@ -364,17 +368,17 @@ $(document).ready(function() {
         `).join('');
 
         tbody.html(html);
+        $('#totalsSection').show();
     }
 
-    function updateSummary() {
-        const totalProducts = selectedProducts.length;
-        const totalQuantity = selectedProducts.reduce((sum, item) => sum + item.quantity, 0);
-        const totalAmount = selectedProducts.reduce((sum, item) => sum + item.subtotal, 0);
+    function updateTotals() {
+        const subtotal = selectedProducts.reduce((sum, item) => sum + item.subtotal, 0);
+        const tax = subtotal * 0.18; // IGV 18%
+        const total = subtotal + tax;
 
-        $('#summaryTotalProducts').text(totalProducts);
-        $('#summaryTotalQuantity').text(totalQuantity);
-        $('#summaryTotalAmount').text(`S/.${totalAmount.toLocaleString('es-PE', {minimumFractionDigits: 2})}`);
-        $('#totalAmount').text(`S/.${totalAmount.toLocaleString('es-PE', {minimumFractionDigits: 2})}`);
+        $('#orderSubtotal').text(`s/. ${subtotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}`);
+        $('#orderTax').text(`s/. ${tax.toLocaleString('es-PE', {minimumFractionDigits: 2})}`);
+        $('#orderTotal').text(`s/. ${total.toLocaleString('es-PE', {minimumFractionDigits: 2})}`);
     }
 
     function validateForm() {
@@ -406,103 +410,146 @@ $(document).ready(function() {
 
         // Habilitar/deshabilitar botones
         $('#createOrderBtn').prop('disabled', !isValid);
+        $('#saveDraftBtn').prop('disabled', !isValid);
         $('#previewBtn').prop('disabled', !isValid);
     }
 
     function showPreview() {
+        if (!validateFormData()) {
+            return;
+        }
+
         const formData = getFormData();
+        const previewHtml = generatePreviewHTML(formData);
         
-        const html = `
-            <div class="invoice-preview">
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h5>Orden de Compra</h5>
-                        <p class="mb-1"><strong>Proveedor:</strong> ${currentSupplier.company_name}</p>
-                        <p class="mb-1"><strong>Contacto:</strong> ${currentSupplier.contact_person || '-'}</p>
-                        <p class="mb-1"><strong>Email:</strong> ${currentSupplier.email || '-'}</p>
-                    </div>
-                    <div class="col-md-6 text-md-end">
-                        <p class="mb-1"><strong>Fecha Entrega:</strong> ${formData.expected_delivery}</p>
-                        <p class="mb-1"><strong>Prioridad:</strong> ${$('#priority option:selected').text()}</p>
-                        <p class="mb-1"><strong>Términos Pago:</strong> ${formData.payment_terms || '-'}</p>
-                    </div>
+        $('#previewContent').html(previewHtml);
+        $('#previewModal').modal('show');
+    }
+
+    function generatePreviewHTML(data) {
+        const subtotal = selectedProducts.reduce((sum, item) => sum + item.subtotal, 0);
+        const tax = subtotal * 0.18;
+        const total = subtotal + tax;
+
+        return `
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Orden de Compra - Vista Previa</h5>
                 </div>
-                
-                <div class="table-responsive">
-                    <table class="table table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Producto</th>
-                                <th class="text-center">Cantidad</th>
-                                <th class="text-end">P. Unitario</th>
-                                <th class="text-end">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${selectedProducts.map(item => `
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>Proveedor:</h6>
+                            <p class="mb-0">${currentSupplier.name}</p>
+                            <p class="mb-0">${currentSupplier.email || ''}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Detalles:</h6>
+                            <p class="mb-0">Fecha de entrega: ${data.expected_delivery}</p>
+                            <p class="mb-0">Prioridad: ${data.priority}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
                                 <tr>
-                                    <td>
-                                        <strong>${item.product.name}</strong><br>
-                                        <small class="text-muted">${item.product.code}</small>
-                                        ${item.notes ? `<br><small class="text-info">${item.notes}</small>` : ''}
-                                    </td>
-                                    <td class="text-center">${item.quantity}</td>
-                                    <td class="text-end">S/.${item.unit_price.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-                                    <td class="text-end">S/.${item.subtotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio Unit.</th>
+                                    <th>Subtotal</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                        <tfoot class="table-secondary">
-                            <tr>
-                                <th colspan="3" class="text-end">Total:</th>
-                                <th class="text-end">S/.${selectedProducts.reduce((sum, item) => sum + item.subtotal, 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}</th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-                
-                ${formData.notes ? `
-                    <div class="mt-4">
-                        <strong>Notas:</strong><br>
-                        <p class="mb-0">${formData.notes}</p>
+                            </thead>
+                            <tbody>
+                                ${selectedProducts.map(item => `
+                                    <tr>
+                                        <td>${item.product_name}</td>
+                                        <td>${item.quantity}</td>
+                                        <td>s/. ${item.unit_price.toFixed(2)}</td>
+                                        <td>s/. ${item.subtotal.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
                     </div>
-                ` : ''}
+                    
+                    <div class="row">
+                        <div class="col-md-6 ms-auto">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td>Subtotal:</td>
+                                    <td class="text-end">s/. ${subtotal.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>IGV (18%):</td>
+                                    <td class="text-end">s/. ${tax.toFixed(2)}</td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td><strong>Total:</strong></td>
+                                    <td class="text-end"><strong>s/. ${total.toFixed(2)}</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
-        
-        $('#previewContent').html(html);
+    }
+
+    function validateFormData() {
+        if (!currentSupplier) {
+            toastr.error('Seleccione un proveedor');
+            return false;
+        }
+
+        if (!$('#expectedDelivery').val()) {
+            toastr.error('Seleccione una fecha de entrega');
+            return false;
+        }
+
+        if (selectedProducts.length === 0) {
+            toastr.error('Agregue al menos un producto');
+            return false;
+        }
+
+        return true;
     }
 
     function getFormData() {
         return {
-            supplier: currentSupplier.id,
-            expected_delivery: $('#expectedDelivery').val(),
+            supplier_id: currentSupplier.id,
+            expected_delivery: $('#expectedDelivery').val().split('/').reverse().join('-'),
             priority: $('#priority').val(),
             payment_terms: $('#paymentTerms').val(),
             notes: $('#notes').val(),
-            items: selectedProducts.map(item => ({
-                product: item.product.id,
-                quantity_ordered: item.quantity,
-                unit_price: item.unit_price,
-                notes: item.notes
+            items: selectedProducts.map(product => ({
+                product_id: product.product_id,
+                quantity_ordered: product.quantity,
+                unit_price: product.unit_price,
+                notes: product.notes
             }))
         };
     }
 
     function createPurchaseOrder(isDraft = false) {
+        if (!validateFormData()) {
+            return;
+        }
+
         const formData = getFormData();
         formData.status = isDraft ? 'draft' : 'sent';
         
         showLoading(isDraft ? 'Guardando borrador...' : 'Creando orden de compra...');
         
+        // ✅ Enviar como JSON en lugar de form data
         $.ajax({
             url: API_URLS.createPO,
             method: 'POST',
-            data: {
-                ...formData,
-                items: JSON.stringify(formData.items),
-                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
             },
+            data: JSON.stringify(formData),
             success: function(response) {
                 toastr.success(isDraft ? 'Borrador guardado correctamente' : 'Orden de compra creada correctamente');
                 setTimeout(() => {
@@ -525,6 +572,14 @@ $(document).ready(function() {
                 hideLoading();
             }
         });
+    }
+
+    function resetProductModal() {
+        $('#addProductForm')[0].reset();
+        $('#productSelect').val(null).trigger('change');
+        $('#productInfo').addClass('d-none');
+        $('#productSubtotal').text('$0.00');
+        $('#addProductModal').removeData('editing-index');
     }
 
     function showLoading(text = 'Cargando...') {

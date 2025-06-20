@@ -15,6 +15,7 @@
 
 {% block vendor_js %}
 {{ block.super }}
+<script src="{% static 'vendor/libs/moment/moment.js' %}"></script>
 <script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
 <script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
 <script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
@@ -34,40 +35,81 @@
   </div>
   <div class="d-flex align-content-center flex-wrap gap-2">
     <a href="{% url 'app-purchase-orders-list' %}" class="btn btn-outline-secondary">
-      <i class="ri-arrow-left-line me-1"></i>Volver
+      <i class="ri-arrow-left-line me-1"></i>Volver al Listado
     </a>
-    <button type="button" class="btn btn-outline-info" id="previewBtn" disabled>
+    <button type="button" class="btn btn-outline-primary" id="previewBtn">
       <i class="ri-eye-line me-1"></i>Vista Previa
+    </button>
+    <button type="button" class="btn btn-outline-secondary" id="saveDraftBtn">
+      <i class="ri-draft-line me-1"></i>Guardar Borrador
+    </button>
+    <button type="button" class="btn btn-primary" id="createOrderBtn">
+      <i class="ri-check-line me-1"></i>Crear Orden
     </button>
   </div>
 </div>
 
-<div class="row">
-  <!-- Formulario Principal -->
-  <div class="col-12 col-lg-8">
-    <form id="createPurchaseOrderForm">
-      <!-- Información Básica -->
+<form id="purchaseOrderForm">
+  <div class="row">
+    <div class="col-12 col-lg-8">
+      <!-- Información del Proveedor -->
       <div class="card mb-6">
         <div class="card-header">
           <h5 class="card-title mb-0">
-            <i class="ri-information-line me-2"></i>Información Básica
+            <i class="ri-building-line me-2"></i>Información del Proveedor
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-12 mb-4">
+              <label for="supplier" class="form-label">Proveedor <span class="text-danger">*</span></label>
+              <select id="supplier" name="supplier_id" class="form-select" required>
+                <option value="">Seleccionar proveedor...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Información del proveedor seleccionado -->
+          <div id="supplierInfo" class="d-none">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <small class="text-muted d-block">Contacto</small>
+                  <strong id="supplierContact">-</strong>
+                </div>
+                <div class="mb-3">
+                  <small class="text-muted d-block">Email</small>
+                  <strong id="supplierEmail">-</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <small class="text-muted d-block">Teléfono</small>
+                  <strong id="supplierPhone">-</strong>
+                </div>
+                <div class="mb-3">
+                  <small class="text-muted d-block">Términos de Pago</small>
+                  <strong id="supplierPaymentTerms">-</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalles de la Orden -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="ri-file-text-line me-2"></i>Detalles de la Orden
           </h5>
         </div>
         <div class="card-body">
           <div class="row">
             <div class="col-md-6 mb-4">
-              <label for="supplier" class="form-label">Proveedor <span class="text-danger">*</span></label>
-              <select id="supplier" name="supplier" class="form-select select2" required>
-                <option value="">Seleccionar proveedor...</option>
-              </select>
+              <label for="expectedDelivery" class="form-label">Fecha de Entrega Esperada <span class="text-danger">*</span></label>
+              <input type="text" id="expectedDelivery" name="expected_delivery" class="form-control" placeholder="Seleccionar fecha" required />
             </div>
-            <div class="col-md-6 mb-4">
-              <label for="expectedDelivery" class="form-label">Fecha Entrega Esperada <span class="text-danger">*</span></label>
-              <input type="text" id="expectedDelivery" name="expected_delivery" class="form-control flatpickr-input" placeholder="Seleccionar fecha..." required />
-            </div>
-          </div>
-          
-          <div class="row">
             <div class="col-md-6 mb-4">
               <label for="priority" class="form-label">Prioridad</label>
               <select id="priority" name="priority" class="form-select">
@@ -106,124 +148,90 @@
                 <tr>
                   <th width="35%">Producto</th>
                   <th width="15%">Cantidad</th>
-                  <th width="15%">P. Unitario</th>
+                  <th width="15%">Precio Unitario</th>
                   <th width="15%">Subtotal</th>
-                  <th width="20%">Acciones</th>
+                  <th width="15%">Notas</th>
+                  <th width="5%">Acciones</th>
                 </tr>
               </thead>
-              <tbody id="productsTableBody">
-                <!-- Los productos se agregarán dinámicamente -->
-              </tbody>
-              <tfoot>
-                <tr class="table-secondary">
-                  <td colspan="3" class="text-end fw-bold">Total:</td>
-                  <td class="fw-bold" id="totalAmount">S/.0.00</td>
-                  <td></td>
+              <tbody>
+                <tr id="emptyProductsRow">
+                  <td colspan="6" class="text-center py-5">
+                    <div class="empty-state">
+                      <i class="ri-shopping-bag-line ri-2x text-muted mb-3"></i>
+                      <p class="text-muted mb-3">No hay productos agregados</p>
+                      <button type="button" class="btn btn-outline-primary btn-sm" id="addFirstProductBtn">
+                        <i class="ri-add-line me-1"></i>Agregar Primer Producto
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </tfoot>
+              </tbody>
             </table>
           </div>
 
-          <!-- Empty state -->
-          <div id="emptyProductsState" class="text-center py-5">
-            <i class="ri-shopping-cart-line ri-48px text-muted mb-3"></i>
-            <h6 class="text-muted">No hay productos agregados</h6>
-            <p class="text-muted mb-4">Agregue productos para crear la orden de compra</p>
-            <button type="button" class="btn btn-primary" id="addFirstProductBtn">
-              <i class="ri-add-line me-1"></i>Agregar Primer Producto
-            </button>
+          <!-- Totales -->
+          <div class="row mt-4" id="totalsSection" style="display: none;">
+            <div class="col-md-6 ms-auto">
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <tbody>
+                    <tr>
+                      <td class="text-end"><strong>Subtotal:</strong></td>
+                      <td class="text-end" id="orderSubtotal">s/. 0.00</td>
+                    </tr>
+                    <tr>
+                      <td class="text-end"><strong>IGV (18%):</strong></td>
+                      <td class="text-end" id="orderTax">s/. 0.00</td>
+                    </tr>
+                    <tr class="table-primary">
+                      <td class="text-end"><strong>Total:</strong></td>
+                      <td class="text-end"><strong id="orderTotal">s/. 0.00</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Botones de Acción -->
+    <!-- Sidebar de Validación -->
+    <div class="col-12 col-lg-4">
       <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="ri-checkbox-circle-line me-2"></i>Lista de Verificación
+          </h5>
+        </div>
         <div class="card-body">
-          <div class="d-flex justify-content-end gap-3">
-            <button type="button" class="btn btn-outline-secondary" id="saveDraftBtn">
-              <i class="ri-draft-line me-1"></i>Guardar como Borrador
-            </button>
-            <button type="submit" class="btn btn-primary" id="createOrderBtn" disabled>
-              <i class="ri-check-line me-1"></i>Crear Orden de Compra
-            </button>
+          <div class="validation-item mb-3" id="validationSupplier">
+            <div class="d-flex align-items-center">
+              <i class="ri-user-line me-2 text-muted"></i>
+              <span>Proveedor seleccionado</span>
+              <i class="ri-close-circle-line ms-auto text-danger" id="supplierIcon"></i>
+            </div>
           </div>
-        </div>
-      </div>
-    </form>
-  </div>
-
-  <!-- Panel Lateral -->
-  <div class="col-12 col-lg-4">
-    <!-- Información del Proveedor -->
-    <div class="card mb-6">
-      <div class="card-header">
-        <h5 class="card-title mb-0">
-          <i class="ri-user-line me-2"></i>Información del Proveedor
-        </h5>
-      </div>
-      <div class="card-body" id="supplierInfo">
-        <div class="text-center text-muted py-4">
-          <i class="ri-user-line ri-48px mb-3"></i>
-          <p class="mb-0">Seleccione un proveedor para ver su información</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Resumen de la Orden -->
-    <div class="card mb-6">
-      <div class="card-header">
-        <h5 class="card-title mb-0">
-          <i class="ri-file-list-line me-2"></i>Resumen
-        </h5>
-      </div>
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <span class="text-muted">Total de Productos:</span>
-          <span class="fw-medium" id="summaryTotalProducts">0</span>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <span class="text-muted">Cantidad Total:</span>
-          <span class="fw-medium" id="summaryTotalQuantity">0</span>
-        </div>
-        <hr>
-        <div class="d-flex justify-content-between align-items-center">
-          <span class="text-muted">Monto Total:</span>
-          <span class="fw-bold text-primary" id="summaryTotalAmount">S/.0.00</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Validaciones -->
-    <div class="card">
-      <div class="card-header">
-        <h5 class="card-title mb-0">Validaciones</h5>
-      </div>
-      <div class="card-body">
-        <div class="validation-item mb-3" id="validationSupplier">
-          <div class="d-flex align-items-center">
-            <i class="ri-user-line me-2 text-muted"></i>
-            <span>Proveedor seleccionado</span>
-            <i class="ri-close-circle-line ms-auto text-danger" id="supplierIcon"></i>
+          <div class="validation-item mb-3" id="validationDate">
+            <div class="d-flex align-items-center">
+              <i class="ri-calendar-line me-2 text-muted"></i>
+              <span>Fecha de entrega</span>
+              <i class="ri-close-circle-line ms-auto text-danger" id="dateIcon"></i>
+            </div>
           </div>
-        </div>
-        <div class="validation-item mb-3" id="validationDate">
-          <div class="d-flex align-items-center">
-            <i class="ri-calendar-line me-2 text-muted"></i>
-            <span>Fecha de entrega</span>
-            <i class="ri-close-circle-line ms-auto text-danger" id="dateIcon"></i>
-          </div>
-        </div>
-        <div class="validation-item mb-3" id="validationProducts">
-          <div class="d-flex align-items-center">
-            <i class="ri-shopping-bag-line me-2 text-muted"></i>
-            <span>Al menos 1 producto</span>
-            <i class="ri-close-circle-line ms-auto text-danger" id="productsIcon"></i>
+          <div class="validation-item mb-3" id="validationProducts">
+            <div class="d-flex align-items-center">
+              <i class="ri-shopping-bag-line me-2 text-muted"></i>
+              <span>Al menos 1 producto</span>
+              <i class="ri-close-circle-line ms-auto text-danger" id="productsIcon"></i>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+</form>
 
 <!-- Modal para Agregar Producto -->
 <div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
@@ -243,39 +251,54 @@
               </select>
             </div>
           </div>
-          
+
+          <!-- Información del producto seleccionado -->
+          <div id="productInfo" class="d-none">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <small class="text-muted d-block">Código:</small>
+                  <strong id="productCode">-</strong>
+                </div>
+                <div class="mb-3">
+                  <small class="text-muted d-block">Stock Actual:</small>
+                  <strong id="productStock">-</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <small class="text-muted d-block">Precio Actual:</small>
+                  <strong id="productPrice">-</strong>
+                </div>
+                <div class="mb-3">
+                  <small class="text-muted d-block">Unidad de Medida:</small>
+                  <strong id="productUnit">-</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="row">
             <div class="col-md-6 mb-4">
-              <label for="productQuantity" class="form-label">Cantidad <span class="text-danger">*</span></label>
-              <input type="number" id="productQuantity" name="quantity" class="form-control" min="1" step="1" required />
+              <label for="quantity" class="form-label">Cantidad <span class="text-danger">*</span></label>
+              <input type="number" id="quantity" name="quantity" class="form-control" min="1" step="0.01" required />
             </div>
             <div class="col-md-6 mb-4">
-              <label for="productPrice" class="form-label">Precio Unitario <span class="text-danger">*</span></label>
-              <div class="input-group">
-                <span class="input-group-text">S/.</span>
-                <input type="number" id="productPrice" name="price" class="form-control" min="0" step="0.01" required />
-              </div>
+              <label for="unitPrice" class="form-label">Precio Unitario <span class="text-danger">*</span></label>
+              <input type="number" id="unitPrice" name="unit_price" class="form-control" min="0" step="0.01" required />
             </div>
           </div>
 
           <div class="mb-4">
             <label for="productNotes" class="form-label">Notas del Producto</label>
-            <textarea id="productNotes" name="product_notes" class="form-control" rows="2" placeholder="Especificaciones adicionales..."></textarea>
+            <textarea id="productNotes" name="notes" class="form-control" rows="2" placeholder="Especificaciones adicionales..."></textarea>
           </div>
 
-          <!-- Información del Producto Seleccionado -->
-          <div id="selectedProductInfo" class="d-none">
-            <div class="alert alert-info">
-              <h6 class="alert-heading">Información del Producto</h6>
-              <div class="row">
-                <div class="col-md-6">
-                  <small><strong>Código:</strong> <span id="productCode">-</span></small><br>
-                  <small><strong>Categoría:</strong> <span id="productCategory">-</span></small>
-                </div>
-                <div class="col-md-6">
-                  <small><strong>Stock:</strong> <span id="productStock">-</span></small><br>
-                  <small><strong>U. Medida:</strong> <span id="productUnit">-</span></small>
-                </div>
+          <div class="row">
+            <div class="col-md-12">
+              <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                <span>Subtotal:</span>
+                <strong id="productSubtotal">s/. 0.00</strong>
               </div>
             </div>
           </div>

@@ -4,7 +4,115 @@ from rest_framework import serializers
 from .models import PurchaseOrder, PurchaseOrderItem
 from apps.ecommerce.products.models import Product
 from apps.ecommerce.suppliers.models import Supplier
+from django.db.models import Avg, Sum
 
+class PurchasingSupplierSerializer(serializers.ModelSerializer):
+    """Serializer específico para suppliers en purchasing"""
+    
+    # Campos principales
+    name = serializers.CharField(source='company_name', read_only=True)
+    supplier_name = serializers.CharField(source='company_name', read_only=True)
+    contact_person = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    phone = serializers.CharField(source='phone_primary', read_only=True)
+    address = serializers.CharField(source='address_line1', read_only=True)
+    
+    # Campos adicionales para purchasing
+    payment_terms = serializers.CharField(read_only=True)
+    delivery_terms = serializers.CharField(read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    rating_display = serializers.CharField(read_only=True)
+    
+    # Información calculada
+    total_orders = serializers.SerializerMethodField()
+    total_spent = serializers.SerializerMethodField()
+    last_order_date = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Supplier
+        fields = [
+            'id', 'name', 'supplier_name', 'contact_person', 'email', 'phone',
+            'address', 'payment_terms', 'delivery_terms', 'category', 
+            'category_display', 'rating', 'rating_display', 'is_active',
+            'is_preferred', 'total_orders', 'total_spent', 'last_order_date'
+        ]
+    
+    def get_total_orders(self, obj):
+        """Número total de órdenes de compra"""
+        return obj.purchaseorder_set.count()
+    
+    def get_total_spent(self, obj):
+        """Total gastado con este proveedor"""
+        total = obj.purchaseorder_set.aggregate(
+            total=Sum('total_amount')
+        )['total']
+        return float(total) if total else 0.0
+    
+    def get_last_order_date(self, obj):
+        """Fecha de la última orden"""
+        last_order = obj.purchaseorder_set.order_by('-order_date').first()
+        return last_order.order_date if last_order else None
+
+class PurchasingProductSerializer(serializers.ModelSerializer):
+    """Serializer específico para productos en purchasing"""
+    
+    # Campos principales  
+    name = serializers.CharField(read_only=True)
+    code = serializers.CharField(read_only=True)
+    description = serializers.CharField(read_only=True)
+    
+    # Información de stock
+    current_stock = serializers.IntegerField(source='stock_current', read_only=True)
+    minimum_stock = serializers.IntegerField(source='stock_minimum', read_only=True)
+    stock_status = serializers.CharField(read_only=True)
+    
+    # Información de precios
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    last_purchase_price = serializers.SerializerMethodField()
+    average_purchase_price = serializers.SerializerMethodField()
+    
+    # Información de categoría
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_id = serializers.IntegerField(source='category.id', read_only=True)
+    
+    # Información adicional
+    unit_of_measure = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+    
+    # Estadísticas de compras
+    total_orders = serializers.SerializerMethodField()
+    last_order_date = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'code', 'description', 'current_stock', 'minimum_stock',
+            'stock_status', 'price', 'last_purchase_price', 'average_purchase_price',
+            'category_name', 'category_id', 'unit_of_measure', 'is_active',
+            'total_orders', 'last_order_date'
+        ]
+    
+    def get_last_purchase_price(self, obj):
+        """Último precio de compra"""
+        last_item = obj.purchaseorderitem_set.order_by('-created_at').first()
+        return float(last_item.unit_price) if last_item else 0.0
+    
+    def get_average_purchase_price(self, obj):
+        """Precio promedio de compra"""
+        avg_price = obj.purchaseorderitem_set.aggregate(
+            avg=Avg('unit_price')
+        )['avg']
+        return float(avg_price) if avg_price else 0.0
+    
+    def get_total_orders(self, obj):
+        """Total de órdenes donde aparece este producto"""
+        return obj.purchaseorderitem_set.values('purchase_order').distinct().count()
+    
+    def get_last_order_date(self, obj):
+        """Fecha de la última orden"""
+        last_item = obj.purchaseorderitem_set.order_by('-created_at').first()
+        return last_item.purchase_order.order_date if last_item else None
+    
 class PurchaseOrderItemSerializer(serializers.ModelSerializer):
     """Serializer para items de orden de compra"""
     
@@ -191,4 +299,4 @@ class ReceiveItemsSerializer(serializers.Serializer):
             if item['quantity_received'] <= 0:
                 raise serializers.ValidationError("Cantidad recibida debe ser mayor a 0")
         
-        return valuecontinura
+        return value
