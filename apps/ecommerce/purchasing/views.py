@@ -1,4 +1,5 @@
 # apps/ecommerce/purchasing/views.py
+
 from rest_framework import generics, viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,6 +18,13 @@ from .models import PurchaseOrder, PurchaseOrderItem
 from apps.ecommerce.suppliers.models import Supplier
 from .serializers import PurchasingSupplierSerializer
 from apps.ecommerce.products.models import Product
+
+from django.core.mail import send_mail
+from django.conf import settings
+from django.template.loader import render_to_string
+from django.utils import timezone
+
+
 from .serializers import (
     PurchaseOrderSerializer,
     PurchaseOrderCreateSerializer,
@@ -39,7 +47,12 @@ logger = logging.getLogger(__name__)
 class PurchaseOrderListCreateAPIView(generics.ListCreateAPIView):
     """API para listar y crear órdenes de compra"""
     permission_classes = [IsAuthenticated]
-
+    def list(self, request, *args, **kwargs):
+            queryset = self.filter_queryset(self.get_queryset())
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                "data": serializer.data
+            })
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return PurchaseOrderCreateSerializer
@@ -78,6 +91,471 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     queryset = PurchaseOrder.objects.all().select_related('supplier', 'created_by').prefetch_related('items')
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
+
+
+    @action(detail=True, methods=['post'])
+    def actions(self, request, pk=None):
+        """Endpoint unificado para todas las acciones de la orden"""
+        purchase_order = self.get_object()
+        action_type = request.data.get('action')
+
+        if not action_type:
+            return Response(
+                {'error': 'Acción no especificada'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            if action_type == 'change_status':
+                return self._handle_change_status(purchase_order, request.data, request.user)
+            elif action_type == 'cancel_order':
+                return self._handle_cancel_order(purchase_order, request.data, request.user)
+            elif action_type == 'duplicate_order':
+                return self._handle_duplicate_order(purchase_order, request.data, request.user)
+            elif action_type == 'send_reminder':
+                return self._handle_send_reminder(purchase_order, request.data, request.user)
+            else:
+                return Response(
+                    {'error': f'Acción no reconocida: {action_type}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Exception as e:
+            logger.error(f"Error in purchase order action {action_type}: {str(e)}")
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _handle_change_status(self, purchase_order, data, user):
+        """Manejar cambio de estado"""
+        new_status = data.get('new_status')
+
+        if not new_status:
+            return Response(
+                {'error': 'Nuevo estado es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validar transición de estado
+        valid_transitions = {
+            'draft': ['sent', 'cancelled'],
+            'sent': ['confirmed', 'cancelled'],
+            'confirmed': ['partially_received', 'completed', 'cancelled'],
+            'partially_received': ['completed', 'cancelled']
+        }
+
+        if new_status not in valid_transitions.get(purchase_order.status, []):
+            return Response(
+                {'error': 'Transición de estado no válida'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Cambiar estado
+        old_status = purchase_order.status
+        purchase_order.status = new_status
+        purchase_order.save(update_fields=['status'])
+
+        # Registrar en historial
+        self._add_to_history(
+            purchase_order,
+            'status_changed',
+            f'Estado cambiado de {old_status} a {new_status}',
+            user
+        )
+
+        # Notificar cambio de estado si es necesario
+        if new_status in ['sent', 'confirmed']:
+            self._notify_supplier_status_change(purchase_order, new_status)
+
+        # Serializar respuesta
+        serializer = PurchaseOrderSerializer(purchase_order)
+        return Response(serializer.data)
+
+    def _handle_cancel_order(self, purchase_order, data,user):
+        """Manejar cancelación de orden"""
+        reason = data.get('reason', '').strip()
+
+        if not reason:
+            return Response(
+                {'error': 'Razón de cancelación es requerida'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verificar si se puede cancelar
+        if purchase_order.status in ['completed', 'cancelled']:
+            return Response(
+                {'error': 'No se puede cancelar una orden completada o ya cancelada'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Cancelar orden
+        old_status = purchase_order.status
+        purchase_order.status = 'cancelled'
+        purchase_order.notes = f"{purchase_order.notes}\n\nCANCELADA: {reason}" if purchase_order.notes else f"CANCELADA: {reason}"
+        purchase_order.save(update_fields=['status', 'notes'])
+
+        # Registrar en historial
+        self._add_to_history(
+            purchase_order,
+            'cancelled',
+            f'Orden cancelada. Razón: {reason}',
+            user
+        )
+
+        # Notificar cancelación al proveedor
+        self._notify_supplier_cancellation(purchase_order, reason)
+
+        # Serializar respuesta
+        serializer = PurchaseOrderSerializer(purchase_order)
+        return Response(serializer.data)
+
+    def _handle_duplicate_order(self, purchase_order, data,user):
+        """Manejar duplicación de orden"""
+        options = data.get('options', {})
+        expected_delivery = options.get('expected_delivery')
+        copy_notes = options.get('copy_notes', True)
+        copy_all_items = options.get('copy_all_items', True)
+        additional_notes = options.get('additional_notes', '').strip()
+
+        if not expected_delivery:
+            return Response(
+                {'error': 'Fecha de entrega es requerida'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Crear nueva orden
+            new_po = PurchaseOrder.objects.create(
+                supplier=purchase_order.supplier,
+                expected_delivery=expected_delivery,
+                notes=self._build_duplicate_notes(purchase_order, copy_notes, additional_notes),
+                created_by=user,
+                status='draft'
+            )
+
+            # Copiar items si se solicita
+            if copy_all_items:
+                for item in purchase_order.items.all():
+                    PurchaseOrderItem.objects.create(
+                        purchase_order=new_po,
+                        product=item.product,
+                        quantity_ordered=item.quantity_ordered,
+                        unit_price=item.unit_price,
+                        notes=item.notes
+                    )
+
+            # Recalcular totales
+            PurchaseOrderCalculationService.update_po_totals(new_po)
+
+            # Registrar en historial de la orden original
+            self._add_to_history(
+                purchase_order,
+                'duplicated',
+                f'Orden duplicada como {new_po.po_number}',
+                user
+            )
+
+            # Registrar en historial de la nueva orden
+            self._add_to_history(
+                new_po,
+                'created',
+                f'Orden creada como duplicado de {purchase_order.po_number}',
+                user
+            )
+
+            return Response({
+                'message': 'Orden duplicada exitosamente',
+                'new_po_id': new_po.id,
+                'new_po_number': new_po.po_number
+            })
+
+        except Exception as e:
+            logger.error(f"Error duplicating purchase order: {str(e)}")
+            return Response(
+                {'error': 'Error al duplicar la orden'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _handle_send_reminder(self, purchase_order, data,user):
+        """Manejar envío de recordatorio"""
+        reminder_options = data.get('reminder_options', {})
+        reminder_type = reminder_options.get('type', 'delivery')
+        message = reminder_options.get('message', '').strip()
+        include_details = reminder_options.get('include_details', True)
+
+        # Verificar que el proveedor tenga email
+        if not purchase_order.supplier.email:
+            return Response(
+                {'error': 'El proveedor no tiene email configurado'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Enviar recordatorio
+            self._send_reminder_email(
+                purchase_order,
+                reminder_type,
+                message,
+                include_details,
+                user
+            )
+
+            # Registrar en historial
+            self._add_to_history(
+                purchase_order,
+                'reminder_sent',
+                f'Recordatorio enviado: {reminder_type}' + (f' - {message}' if message else ''),
+                user
+            )
+
+            return Response({
+                'message': 'Recordatorio enviado exitosamente',
+                'sent_to': purchase_order.supplier.email
+            })
+
+        except Exception as e:
+            logger.error(f"Error sending reminder: {str(e)}")
+            return Response(
+                {'error': 'Error al enviar el recordatorio'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'])
+    def history(self, request, pk=None):
+        """Obtener historial de la orden"""
+        purchase_order = self.get_object()
+
+        # Obtener historial desde el campo JSON o base de datos
+        history = self._get_order_history(purchase_order)
+
+        return Response({
+            'history': history,
+            'total_events': len(history)
+        })
+
+    @action(detail=True, methods=['get'])
+    def export_pdf(self, request, pk=None):
+        """Exportar orden a PDF"""
+        purchase_order = self.get_object()
+
+        try:
+            # Usar el servicio de PDF
+            from .services import PurchaseOrderPDFService
+            pdf_response = PurchaseOrderPDFService.generate_po_pdf(purchase_order)
+
+            # Registrar en historial
+            self._add_to_history(
+                purchase_order,
+                'exported',
+                'PDF exportado',
+                request.user
+            )
+
+            return pdf_response
+
+        except Exception as e:
+            logger.error(f"Error generating PDF: {str(e)}")
+            return Response(
+                {'error': 'Error al generar el PDF'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    # ✅ Métodos auxiliares privados
+
+    def _add_to_history(self, purchase_order, action, description, user):
+        """Agregar evento al historial de la orden"""
+        try:
+            # Si existe un modelo de historial, usarlo
+            # Si no, agregar al campo JSON
+
+            history_entry = {
+                'action': action,
+                'description': description,
+                'user': user.username if user else 'Sistema',
+                'timestamp': timezone.now().isoformat(),
+                'details': None
+            }
+
+            # Aquí puedes implementar tu sistema de historial preferido
+            # Opción 1: Campo JSON en el modelo
+            if hasattr(purchase_order, 'history_json'):
+                if not purchase_order.history_json:
+                    purchase_order.history_json = []
+                purchase_order.history_json.insert(0, history_entry)
+                purchase_order.save(update_fields=['history_json'])
+
+            # Opción 2: Modelo separado de historial
+            # PurchaseOrderHistory.objects.create(
+            #     purchase_order=purchase_order,
+            #     action=action,
+            #     description=description,
+            #     user=user
+            # )
+
+        except Exception as e:
+            logger.error(f"Error adding to history: {str(e)}")
+
+    def _get_order_history(self, purchase_order):
+        """Obtener historial de la orden"""
+        try:
+            # Opción 1: Desde campo JSON
+            if hasattr(purchase_order, 'history_json') and purchase_order.history_json:
+                return purchase_order.history_json
+
+            # Opción 2: Desde modelo de historial
+            # history = PurchaseOrderHistory.objects.filter(
+            #     purchase_order=purchase_order
+            # ).order_by('-created_at').values(
+            #     'action', 'description', 'user__username', 'created_at'
+            # )
+            # return list(history)
+
+            # Historial por defecto basado en timestamps del modelo
+            return [
+                {
+                    'action': 'created',
+                    'description': 'Orden de compra creada',
+                    'user': purchase_order.created_by.username if purchase_order.created_by else 'Sistema',
+                    'timestamp': purchase_order.created_at.isoformat()
+                }
+            ]
+
+        except Exception as e:
+            logger.error(f"Error getting history: {str(e)}")
+            return []
+
+    def _build_duplicate_notes(self, original_po, copy_notes, additional_notes):
+        """Construir notas para orden duplicada"""
+        notes_parts = []
+
+        notes_parts.append(f"Duplicado de la orden {original_po.po_number}")
+
+        if copy_notes and original_po.notes:
+            notes_parts.append("\n--- Notas originales ---")
+            notes_parts.append(original_po.notes)
+
+        if additional_notes:
+            notes_parts.append("\n--- Notas adicionales ---")
+            notes_parts.append(additional_notes)
+
+        return "\n".join(notes_parts)
+
+    def _send_reminder_email(self, purchase_order, reminder_type, message, include_details, user):
+        """Enviar email de recordatorio al proveedor"""
+        try:
+            # Configurar asunto según tipo
+            subject_map = {
+                'delivery': f'Recordatorio de Entrega - Orden {purchase_order.po_number}',
+                'confirmation': f'Solicitud de Confirmación - Orden {purchase_order.po_number}',
+                'status_update': f'Actualización de Estado - Orden {purchase_order.po_number}',
+                'custom': f'Recordatorio - Orden {purchase_order.po_number}'
+            }
+
+            subject = subject_map.get(reminder_type, subject_map['custom'])
+
+            # Preparar contexto para el template
+            context = {
+                'purchase_order': purchase_order,
+                'reminder_type': reminder_type,
+                'message': message,
+                'include_details': include_details,
+                'user': user,
+                'company_name': getattr(settings, 'COMPANY_NAME', 'Su Empresa')
+            }
+
+            # Renderizar template de email
+            html_content = render_to_string(
+                'emails/purchase_order_reminder.html',
+                context
+            )
+
+            # Enviar email
+            send_mail(
+                subject=subject,
+                message=f'Recordatorio para la orden {purchase_order.po_number}',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[purchase_order.supplier.email],
+                html_message=html_content,
+                fail_silently=False
+            )
+
+        except Exception as e:
+            logger.error(f"Error sending reminder email: {str(e)}")
+            raise
+
+    def _notify_supplier_status_change(self, purchase_order, new_status):
+        """Notificar al proveedor sobre cambio de estado"""
+        try:
+            if not purchase_order.supplier.email:
+                return
+
+            status_messages = {
+                'sent': 'Su orden de compra ha sido enviada',
+                'confirmed': 'Su orden de compra ha sido confirmada'
+            }
+
+            message = status_messages.get(new_status)
+            if not message:
+                return
+
+            subject = f'Actualización de Estado - Orden {purchase_order.po_number}'
+
+            context = {
+                'purchase_order': purchase_order,
+                'new_status': new_status,
+                'message': message,
+                'company_name': getattr(settings, 'COMPANY_NAME', 'Su Empresa')
+            }
+
+            html_content = render_to_string(
+                'emails/purchase_order_status_change.html',
+                context
+            )
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[purchase_order.supplier.email],
+                html_message=html_content,
+                fail_silently=True  # No fallar si no se puede enviar
+            )
+
+        except Exception as e:
+            logger.error(f"Error notifying supplier: {str(e)}")
+
+    def _notify_supplier_cancellation(self, purchase_order, reason):
+        """Notificar al proveedor sobre cancelación"""
+        try:
+            if not purchase_order.supplier.email:
+                return
+
+            subject = f'Orden Cancelada - {purchase_order.po_number}'
+
+            context = {
+                'purchase_order': purchase_order,
+                'reason': reason,
+                'company_name': getattr(settings, 'COMPANY_NAME', 'Su Empresa')
+            }
+
+            html_content = render_to_string(
+                'emails/purchase_order_cancellation.html',
+                context
+            )
+
+            send_mail(
+                subject=subject,
+                message=f'La orden {purchase_order.po_number} ha sido cancelada. Razón: {reason}',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[purchase_order.supplier.email],
+                html_message=html_content,
+                fail_silently=True
+            )
+
+        except Exception as e:
+            logger.error(f"Error notifying cancellation: {str(e)}")
+
     def create(self, request, *args, **kwargs):
         """Override create para devolver respuesta correcta"""
         serializer = self.get_serializer(data=request.data)

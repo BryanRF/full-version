@@ -228,6 +228,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "rfreyrebrayaned@uss.edu.pe"
 EMAIL_HOST_PASSWORD = "ajjvniyyqelwvsvp"
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 

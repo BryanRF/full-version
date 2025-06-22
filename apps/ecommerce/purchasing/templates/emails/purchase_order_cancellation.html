@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orden Cancelada - {{ purchase_order.po_number }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .cancellation-notice {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .order-summary {
+            background-color: #f8f9fa;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #f1f3f4;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>❌ Orden Cancelada</h1>
+            <p>{{ company_name }}</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Estimado {{ purchase_order.supplier.contact_person|default:"Proveedor" }},</h2>
+
+            <p>Lamentamos informarle que la siguiente orden de compra ha sido cancelada:</p>
+
+            <!-- Cancellation Notice -->
+            <div class="cancellation-notice">
+                <h3>🚫 Orden {{ purchase_order.po_number }} - CANCELADA</h3>
+                <p><strong>Razón de la cancelación:</strong></p>
+                <p style="background-color: white; padding: 10px; border-radius: 3px; font-style: italic;">
+                    {{ reason }}
+                </p>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="order-summary">
+                <h4>📋 Detalles de la Orden Cancelada</h4>
+                <p><strong>Número:</strong> {{ purchase_order.po_number }}</p>
+                <p><strong>Fecha de Orden:</strong> {{ purchase_order.order_date|date:"d/m/Y" }}</p>
+                <p><strong>Fecha de Entrega Programada:</strong> {{ purchase_order.expected_delivery|date:"d/m/Y" }}</p>
+                <p><strong>Total:</strong> S/. {{ purchase_order.total_amount|floatformat:2 }}</p>
+            </div>
+
+            <p>Por favor, considere esta comunicación como cancelación oficial de la orden mencionada.
+            No es necesario realizar ninguna entrega relacionada con esta orden.</p>
+
+            <p>Si ya había iniciado la preparación de algún item de esta orden, por favor contáctenos
+            para coordinar los próximos pasos.</p>
+
+            <p>Agradecemos su comprensión y esperamos seguir trabajando juntos en futuras oportunidades.</p>
+
+            <p>Saludos cordiales,<br>
+            <strong>{{ company_name }}</strong></p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Este es un mensaje automático del sistema de gestión de compras de {{ company_name }}.</p>
+            <p>Para cualquier consulta, por favor contáctenos directamente.</p>
+        </div>
+    </div>
+</body>
+</html>

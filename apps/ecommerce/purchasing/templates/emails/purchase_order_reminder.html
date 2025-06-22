@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordatorio - Orden {{ purchase_order.po_number }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .order-info {
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #f1f3f4;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .alert {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .alert-info {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            color: #1976d2;
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .details-table th,
+        .details-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .details-table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📋 Recordatorio de Orden</h1>
+            <p>{{ company_name }}</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Estimado {{ purchase_order.supplier.contact_person|default:"Proveedor" }},</h2>
+
+            <p>Esperamos que se encuentre bien. Le enviamos este recordatorio sobre la siguiente orden de compra:</p>
+
+            <!-- Order Info -->
+            <div class="order-info">
+                <h3>📄 Información de la Orden</h3>
+                <table class="details-table">
+                    <tr>
+                        <th>Número de Orden:</th>
+                        <td><strong>{{ purchase_order.po_number }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Fecha de Orden:</th>
+                        <td>{{ purchase_order.order_date|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Fecha de Entrega Esperada:</th>
+                        <td>{{ purchase_order.expected_delivery|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Estado Actual:</th>
+                        <td>
+                            {% if purchase_order.status == 'sent' %}🔄 Enviada
+                            {% elif purchase_order.status == 'confirmed' %}✅ Confirmada
+                            {% elif purchase_order.status == 'partially_received' %}📦 Parcialmente Recibida
+                            {% else %}{{ purchase_order.get_status_display }}{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Total:</th>
+                        <td><strong>S/. {{ purchase_order.total_amount|floatformat:2 }}</strong></td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Reminder Type Message -->
+            {% if reminder_type == 'delivery' %}
+                <div class="alert alert-info">
+                    <strong>🚚 Recordatorio de Entrega</strong><br>
+                    Le recordamos que la fecha de entrega programada es el {{ purchase_order.expected_delivery|date:"d/m/Y" }}.
+                    Agradecemos confirmar si podrá cumplir con esta fecha.
+                </div>
+            {% elif reminder_type == 'confirmation' %}
+                <div class="alert alert-info">
+                    <strong>✅ Solicitud de Confirmación</strong><br>
+                    Necesitamos que confirme la recepción y aceptación de esta orden de compra.
+                </div>
+            {% elif reminder_type == 'status_update' %}
+                <div class="alert alert-info">
+                    <strong>📊 Actualización de Estado</strong><br>
+                    Agradecemos nos proporcione una actualización sobre el estado de esta orden.
+                </div>
+            {% endif %}
+
+            <!-- Custom Message -->
+            {% if message %}
+                <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
+                    <strong>📝 Mensaje adicional:</strong><br>
+                    {{ message }}
+                </div>
+            {% endif %}
+
+            <!-- Order Details -->
+            {% if include_details and purchase_order.items.all %}
+                <h3>📋 Detalles de la Orden</h3>
+                <table class="details-table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unit.</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in purchase_order.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity_ordered }}</td>
+                            <td>S/. {{ item.unit_price|floatformat:2 }}</td>
+                            <td>S/. {{ item.line_total|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+
+            <p>Para cualquier consulta o aclaración, no dude en contactarnos.</p>
+
+            <p>Saludos cordiales,<br>
+            <strong>{{ user.get_full_name|default:user.username }}</strong><br>
+            {{ company_name }}</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Este es un mensaje automático del sistema de gestión de compras de {{ company_name }}.</p>
+            <p>Por favor, no responda directamente a este correo.</p>
+        </div>
+    </div>
+</body>
+</html>

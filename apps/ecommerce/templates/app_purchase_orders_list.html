@@ -8,18 +8,71 @@
 {% block vendor_css %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'vendor/libs/datatables-bs5/datatables.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/datatables-checkboxes-jquery/datatables.checkboxes.css' %}" />
 <link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}" />
 <link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
 <link rel="stylesheet" href="{% static 'vendor/libs/toastr/toastr.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/libs/sweetalert2/sweetalert2.css' %}" />
 {% endblock vendor_css %}
 
 {% block vendor_js %}
 {{ block.super }}
+<script src="{% static 'vendor/libs/moment/moment.js' %}"></script>
 <script src="{% static 'vendor/libs/datatables-bs5/datatables-bootstrap5.js' %}"></script>
 <script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
 <script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
 <script src="{% static 'vendor/libs/toastr/toastr.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
 {% endblock vendor_js %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+/* Estilos específicos para Purchase Orders */
+.card-widget-separator .row > .col-sm-6:not(:last-child):after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 60%;
+  background: var(--bs-border-color);
+}
+
+.avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.datatables-purchase-orders tbody tr {
+  cursor: pointer;
+}
+
+.datatables-purchase-orders tbody tr:hover {
+  background-color: var(--bs-hover-bg);
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.progress {
+  height: 6px;
+}
+
+@media (max-width: 767px) {
+  .card-widget-separator .row > .col-sm-6:after {
+    display: none;
+  }
+}
+</style>
+{% endblock page_css %}
 
 {% block page_js %}
 {{ block.super }}
@@ -27,7 +80,7 @@
 {% endblock page_js %}
 
 {% block content %}
-<!-- Purchase Orders Analytics -->
+<!-- Purchase Orders Analytics Dashboard -->
 <div class="card mb-6">
   <div class="card-widget-separator-wrapper">
     <div class="card-body card-widget-separator">
@@ -49,7 +102,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="col-sm-6 col-lg-3">
           <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
             <div>
@@ -67,7 +120,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="col-sm-6 col-lg-3">
           <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
             <div>
@@ -85,7 +138,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="col-sm-6 col-lg-3">
           <div class="d-flex justify-content-between align-items-start">
             <div>
@@ -112,12 +165,22 @@
 <div class="card">
   <div class="card-header">
     <div class="d-flex justify-content-between align-items-center">
-      <h5 class="card-title mb-0">Órdenes de Compra</h5>
-      
+      <h5 class="card-title mb-0">
+        <i class="ri-shopping-cart-line me-2"></i>
+        Órdenes de Compra
+      </h5>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" id="refreshTable" title="Actualizar">
+          <i class="ri-refresh-line"></i>
+        </button>
+        <a href="/purchasing/app/purchase-orders/create/" class="btn btn-primary">
+          <i class="ri-add-line me-1"></i>Nueva Orden
+        </a>
+      </div>
     </div>
-    
-    <!-- Filters -->
-    <div class="d-flex justify-content-between align-items-center row gap-5 gx-6 gap-md-0 mt-4">
+
+    <!-- Filters Section -->
+    <div class="d-flex justify-content-between align-items-center row gap-4 gx-6 gap-md-0 mt-4">
       <div class="col-md-2">
         <div class="form-floating form-floating-outline">
           <select class="form-select" id="statusFilter">
@@ -132,46 +195,47 @@
           <label for="statusFilter">Estado</label>
         </div>
       </div>
-      
+
       <div class="col-md-2">
         <div class="form-floating form-floating-outline">
           <select class="form-select" id="supplierFilter">
             <option value="">Todos los proveedores</option>
-            <!-- Se carga dinámicamente -->
+            <!-- Opciones se cargan dinámicamente -->
           </select>
           <label for="supplierFilter">Proveedor</label>
         </div>
       </div>
-      
+
       <div class="col-md-2">
         <div class="form-floating form-floating-outline">
           <input type="text" class="form-control" id="dateFromFilter" placeholder="YYYY-MM-DD">
-          <label for="dateFromFilter">Desde</label>
+          <label for="dateFromFilter">Fecha Desde</label>
         </div>
       </div>
-      
+
       <div class="col-md-2">
         <div class="form-floating form-floating-outline">
           <input type="text" class="form-control" id="dateToFilter" placeholder="YYYY-MM-DD">
-          <label for="dateToFilter">Hasta</label>
+          <label for="dateToFilter">Fecha Hasta</label>
         </div>
       </div>
-      
+
       <div class="col-md-3">
         <div class="form-floating form-floating-outline">
           <input type="text" class="form-control" id="searchFilter" placeholder="Buscar...">
           <label for="searchFilter">Buscar orden, proveedor...</label>
         </div>
       </div>
-      
+
       <div class="col-md-1">
-        <button class="btn btn-outline-secondary w-100" id="clearFiltersBtn" style="height: 56px;">
+        <button class="btn btn-outline-secondary w-100" id="clearFiltersBtn"
+                style="height: 56px;" title="Limpiar Filtros">
           <i class="ri-refresh-line"></i>
         </button>
       </div>
     </div>
   </div>
-  
+
   <div class="card-datatable table-responsive">
     <table class="datatables-purchase-orders table">
       <thead>
@@ -197,8 +261,11 @@
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Detalles de la Orden de Compra</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title">
+          <i class="ri-file-list-3-line me-2"></i>
+          Detalles de la Orden de Compra
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div id="poDetailsContent">
@@ -220,10 +287,17 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Recibir Productos</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title">
+          <i class="ri-truck-line me-2"></i>
+          Recibir Productos
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <div class="alert alert-info">
+          <i class="ri-information-line me-2"></i>
+          <strong>Instrucciones:</strong> Seleccione los productos que está recibiendo y ajuste las cantidades según corresponda.
+        </div>
         <form id="receiveItemsForm">
           <div id="receiveItemsList">
             <!-- Items will be loaded dynamically -->
@@ -240,45 +314,9 @@
   </div>
 </div>
 
-<!-- Change Status Modal -->
-<div class="modal fade" id="changeStatusModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Cambiar Estado</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <form id="changeStatusForm">
-          <div class="form-floating form-floating-outline mb-4">
-            <select class="form-select" id="newStatus" name="status" required>
-              <option value="">Seleccionar estado...</option>
-              <option value="draft">Borrador</option>
-              <option value="sent">Enviada</option>
-              <option value="confirmed">Confirmada</option>
-              <option value="partially_received">Parcialmente Recibida</option>
-              <option value="completed">Completada</option>
-              <option value="cancelled">Cancelada</option>
-            </select>
-            <label for="newStatus">Nuevo Estado</label>
-          </div>
-          
-          <div class="form-floating form-floating-outline mb-4">
-            <textarea class="form-control h-px-100" id="statusNotes" name="notes" placeholder="Motivo del cambio..."></textarea>
-            <label for="statusNotes">Notas (Opcional)</label>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="confirmStatusChangeBtn">Cambiar Estado</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Loading Overlay -->
-<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none"
+     style="background: rgba(0,0,0,0.5); z-index: 9999;">
   <div class="d-flex justify-content-center align-items-center h-100">
     <div class="text-center text-white">
       <div class="spinner-border mb-3" role="status">
@@ -287,5 +325,10 @@
       <div id="loadingText">Procesando...</div>
     </div>
   </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 11055;">
+  <!-- Toasts will be dynamically added here -->
 </div>
 {% endblock %}

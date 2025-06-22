@@ -22,7 +22,7 @@ class PurchaseOrder(models.Model):
     # Identificación
     po_number = models.CharField(max_length=20, unique=True, editable=False)
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT)
-
+    history_json = models.JSONField(default=list, blank=True, verbose_name="Historial")
     # Control
     created_by = models.ForeignKey(User, on_delete=models.PROTECT)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')

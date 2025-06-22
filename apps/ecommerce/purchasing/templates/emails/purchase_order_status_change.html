@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actualización de Estado - Orden {{ purchase_order.po_number }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .status-update {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .order-summary {
+            background-color: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #f1f3f4;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>✅ Actualización de Estado</h1>
+            <p>{{ company_name }}</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Estimado {{ purchase_order.supplier.contact_person|default:"Proveedor" }},</h2>
+
+            <p>Le informamos que el estado de su orden de compra ha sido actualizado:</p>
+
+            <!-- Status Update -->
+            <div class="status-update">
+                <h3>📄 Orden {{ purchase_order.po_number }}</h3>
+                <p><strong>{{ message }}</strong></p>
+                <p>Estado actual:
+                    {% if new_status == 'sent' %}<span style="color: #007bff;">🔄 Enviada</span>
+                    {% elif new_status == 'confirmed' %}<span style="color: #28a745;">✅ Confirmada</span>
+                    {% elif new_status == 'partially_received' %}<span style="color: #ffc107;">📦 Parcialmente Recibida</span>
+                    {% elif new_status == 'completed' %}<span style="color: #28a745;">🎉 Completada</span>
+                    {% else %}{{ purchase_order.get_status_display }}{% endif %}
+                </p>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="order-summary">
+                <h4>📋 Resumen de la Orden</h4>
+                <p><strong>Número:</strong> {{ purchase_order.po_number }}</p>
+                <p><strong>Fecha de Orden:</strong> {{ purchase_order.order_date|date:"d/m/Y" }}</p>
+                <p><strong>Fecha de Entrega:</strong> {{ purchase_order.expected_delivery|date:"d/m/Y" }}</p>
+                <p><strong>Total:</strong> S/. {{ purchase_order.total_amount|floatformat:2 }}</p>
+            </div>
+
+            {% if new_status == 'sent' %}
+                <p>Su orden ha sido oficialmente enviada. Agradecemos confirmar la recepción cuando sea conveniente.</p>
+            {% elif new_status == 'confirmed' %}
+                <p>Su orden ha sido confirmada y está siendo procesada. Le mantendremos informado sobre el progreso.</p>
+            {% endif %}
+
+            <p>Gracias por su colaboración y confianza.</p>
+
+            <p>Saludos cordiales,<br>
+            <strong>{{ company_name }}</strong></p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Este es un mensaje automático del sistema de gestión de compras de {{ company_name }}.</p>
+        </div>
+    </div>
+</body>
+</html>

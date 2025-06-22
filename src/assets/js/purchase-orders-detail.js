@@ -10,13 +10,14 @@ $(document).ready(function() {
     const poId = window.location.pathname.split('/').slice(-2, -1)[0];
 
     // URLs de la API
-    const API_URLS = {
-        poDetails: `/purchasing/purchase-orders/${poId}/`,
-        poActions: `/purchasing/purchase-orders/${poId}/actions/`,
-        receiveItems: `/purchasing/purchase-orders/${poId}/receive-items/`,
-        exportPdf: `/purchasing/purchase-orders/${poId}/export-pdf/`,
-        history: `/purchasing/purchase-orders/${poId}/history/`
-    };
+  const API_URLS = {
+    poDetails: `/purchasing/purchase-orders/${poId}/`,
+    poActions: `/purchasing/purchase-orders/${poId}/actions/`,
+    receiveItems: `/purchasing/purchase-orders/${poId}/receive_items/`, // ← corregido
+    exportPdf: `/purchasing/purchase-orders/${poId}/export_pdf/`,       // ← corregido
+    history: `/purchasing/purchase-orders/${poId}/history/`
+};
+
 
     // Inicialización
     init();
@@ -49,7 +50,7 @@ $(document).ready(function() {
                                     <i class="ri-file-search-line ri-48px text-muted mb-3"></i>
                                     <h5 class="text-muted">Orden de Compra No Encontrada</h5>
                                     <p class="text-muted mb-4">La orden de compra solicitada no existe o no tiene permisos para verla.</p>
-                                    <a href="/purchasing/app/purchase-orders/list/" class="btn btn-primary">
+                                    <a href="/app/purchase-orders/list/" class="btn btn-primary">
                                         <i class="ri-arrow-left-line me-1"></i>Volver a la Lista
                                     </a>
                                 </div>
@@ -565,29 +566,681 @@ $(document).ready(function() {
         $('#loadingOverlay').addClass('d-none');
     }
 
-    // ✅ Funciones adicionales para acciones que pueden faltar
-    function changeOrderStatus(newStatus) {
-        console.log('Changing status to:', newStatus);
-        // Implementar lógica de cambio de estado
+    /**
+ * Funciones completas para Purchase Orders Detail
+ * Siguiendo la estructura y patrones del proyecto
+ */
+
+// ✅ 1. Función para cambiar estado de la orden
+function changeOrderStatus(newStatus) {
+    if (!currentPO) {
+        toastr.error('No hay datos de la orden disponibles');
+        return;
     }
 
-    function cancelOrder() {
-        console.log('Canceling order');
-        // Implementar lógica de cancelación
+    // Validar transición de estado
+    if (!isValidStatusTransition(currentPO.status, newStatus)) {
+        toastr.error('Transición de estado no válida');
+        return;
     }
 
-    function duplicateOrder() {
-        console.log('Duplicating order');
-        // Implementar lógica de duplicación
+    // Confirmar cambio de estado
+    const statusConfig = getStatusConfig(newStatus);
+    const currentStatusConfig = getStatusConfig(currentPO.status);
+
+    Swal.fire({
+        title: 'Confirmar Cambio de Estado',
+        html: `
+            <div class="text-center">
+                <p class="mb-3">¿Desea cambiar el estado de la orden?</p>
+                <div class="d-flex justify-content-center align-items-center gap-3">
+                    <span class="badge bg-label-${currentStatusConfig.color}">${currentStatusConfig.text}</span>
+                    <i class="ri-arrow-right-line"></i>
+                    <span class="badge bg-label-${statusConfig.color}">${statusConfig.text}</span>
+                </div>
+            </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: `Cambiar a ${statusConfig.text}`,
+        cancelButtonText: 'Cancelar',
+        customClass: {
+            confirmButton: 'btn btn-primary me-2',
+            cancelButton: 'btn btn-outline-secondary'
+        },
+        buttonsStyling: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            performStatusChange(newStatus);
+        }
+    });
+}
+
+function performStatusChange(newStatus) {
+    showLoading('Cambiando estado...');
+
+    $.ajax({
+        url: API_URLS.poActions,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: {
+            'X-CSRFToken': window.PO_CONFIG?.csrfToken || $('[name=csrfmiddlewaretoken]').val()
+        },
+        data: JSON.stringify({
+            action: 'change_status',
+            new_status: newStatus
+        }),
+        success: function(response) {
+            const statusConfig = getStatusConfig(newStatus);
+            toastr.success(`Estado cambiado a ${statusConfig.text}`);
+
+            // Actualizar datos locales
+            currentPO.status = newStatus;
+
+            // Re-renderizar componentes afectados
+            renderPODetails(response);
+            setupActionButtons(response);
+
+            // Notificar el cambio
+            triggerStatusChangeNotification(newStatus);
+        },
+        error: function(xhr) {
+            console.error('Error changing status:', xhr);
+            const errorMsg = xhr.responseJSON?.error || 'Error al cambiar el estado';
+            toastr.error(errorMsg);
+        },
+        complete: function() {
+            hideLoading();
+        }
+    });
+}
+
+function isValidStatusTransition(currentStatus, newStatus) {
+    const validTransitions = {
+        'draft': ['sent', 'cancelled'],
+        'sent': ['confirmed', 'cancelled'],
+        'confirmed': ['partially_received', 'completed', 'cancelled'],
+        'partially_received': ['completed', 'cancelled']
+    };
+
+    return validTransitions[currentStatus]?.includes(newStatus) || false;
+}
+
+// ✅ 2. Función para cancelar orden
+function cancelOrder() {
+    if (!currentPO) {
+        toastr.error('No hay datos de la orden disponibles');
+        return;
     }
 
-    function sendReminder() {
-        console.log('Sending reminder');
-        // Implementar lógica de recordatorio
+    // Verificar si se puede cancelar
+    if (['completed', 'cancelled'].includes(currentPO.status)) {
+        toastr.error('No se puede cancelar una orden completada o ya cancelada');
+        return;
     }
 
-    function renderOrderHistory(history) {
-        console.log('Rendering history:', history);
-        // Implementar renderizado de historial
+    // Modal de confirmación con razón de cancelación
+    Swal.fire({
+        title: 'Cancelar Orden de Compra',
+        html: `
+            <div class="text-start">
+                <div class="alert alert-warning d-flex align-items-center mb-3">
+                    <i class="ri-alert-line me-2"></i>
+                    <span>Esta acción no se puede deshacer</span>
+                </div>
+                <div class="form-floating form-floating-outline">
+                    <textarea
+                        id="cancellationReason"
+                        class="form-control"
+                        placeholder="Ingrese la razón de cancelación..."
+                        style="height: 100px"
+                        required
+                    ></textarea>
+                    <label for="cancellationReason">Razón de Cancelación *</label>
+                </div>
+            </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Cancelar Orden',
+        cancelButtonText: 'Volver',
+        confirmButtonColor: '#d33',
+        customClass: {
+            confirmButton: 'btn btn-danger me-2',
+            cancelButton: 'btn btn-outline-secondary'
+        },
+        buttonsStyling: false,
+        preConfirm: () => {
+            const reason = document.getElementById('cancellationReason').value.trim();
+            if (!reason) {
+                Swal.showValidationMessage('La razón de cancelación es requerida');
+                return false;
+            }
+            return reason;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            performOrderCancellation(result.value);
+        }
+    });
+}
+
+function performOrderCancellation(reason) {
+    showLoading('Cancelando orden...');
+
+    $.ajax({
+        url: API_URLS.poActions,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: {
+            'X-CSRFToken': window.PO_CONFIG?.csrfToken || $('[name=csrfmiddlewaretoken]').val()
+        },
+        data: JSON.stringify({
+            action: 'cancel_order',
+            reason: reason
+        }),
+        success: function(response) {
+            toastr.success('Orden cancelada exitosamente');
+
+            // Actualizar estado local
+            currentPO.status = 'cancelled';
+
+            // Re-renderizar vista
+            loadPODetails();
+
+            // Mostrar alerta de cancelación
+            showCancellationAlert(reason);
+        },
+        error: function(xhr) {
+            console.error('Error cancelling order:', xhr);
+            const errorMsg = xhr.responseJSON?.error || 'Error al cancelar la orden';
+            toastr.error(errorMsg);
+        },
+        complete: function() {
+            hideLoading();
+        }
+    });
+}
+
+function showCancellationAlert(reason) {
+    const alertHtml = `
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <h5 class="alert-heading">
+                <i class="ri-close-circle-line me-2"></i>Orden Cancelada
+            </h5>
+            <p class="mb-2"><strong>Razón:</strong> ${reason}</p>
+            <hr>
+            <p class="mb-0">
+                <small>Esta orden ha sido cancelada y no se pueden realizar más acciones sobre ella.</small>
+            </p>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+
+    $('#alertContainer').html(alertHtml);
+}
+
+// ✅ 3. Función para duplicar orden
+function duplicateOrder() {
+    if (!currentPO) {
+        toastr.error('No hay datos de la orden disponibles');
+        return;
     }
+
+    // Modal de configuración de duplicación
+    Swal.fire({
+        title: 'Duplicar Orden de Compra',
+        html: `
+            <div class="text-start">
+                <div class="alert alert-info d-flex align-items-center mb-3">
+                    <i class="ri-information-line me-2"></i>
+                    <span>Se creará una nueva orden basada en la actual</span>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="form-floating form-floating-outline">
+                            <input
+                                type="date"
+                                id="newExpectedDelivery"
+                                class="form-control"
+                                value="${moment().add(7, 'days').format('YYYY-MM-DD')}"
+                                min="${moment().format('YYYY-MM-DD')}"
+                            >
+                            <label for="newExpectedDelivery">Nueva Fecha de Entrega</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="copyNotes" checked>
+                            <label class="form-check-label" for="copyNotes">
+                                Copiar notas de la orden original
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="copyAllItems" checked>
+                            <label class="form-check-label" for="copyAllItems">
+                                Copiar todos los items
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="form-floating form-floating-outline">
+                        <textarea
+                            id="duplicateNotes"
+                            class="form-control"
+                            placeholder="Notas adicionales para la nueva orden..."
+                            style="height: 80px"
+                        ></textarea>
+                        <label for="duplicateNotes">Notas Adicionales</label>
+                    </div>
+                </div>
+            </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Crear Duplicado',
+        cancelButtonText: 'Cancelar',
+        customClass: {
+            confirmButton: 'btn btn-primary me-2',
+            cancelButton: 'btn btn-outline-secondary'
+        },
+        buttonsStyling: false,
+        preConfirm: () => {
+            const expectedDelivery = document.getElementById('newExpectedDelivery').value;
+            if (!expectedDelivery) {
+                Swal.showValidationMessage('La fecha de entrega es requerida');
+                return false;
+            }
+
+            return {
+                expected_delivery: expectedDelivery,
+                copy_notes: document.getElementById('copyNotes').checked,
+                copy_all_items: document.getElementById('copyAllItems').checked,
+                additional_notes: document.getElementById('duplicateNotes').value.trim()
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            performOrderDuplication(result.value);
+        }
+    });
+}
+
+function performOrderDuplication(options) {
+    showLoading('Duplicando orden...');
+
+    $.ajax({
+        url: API_URLS.poActions,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: {
+            'X-CSRFToken': window.PO_CONFIG?.csrfToken || $('[name=csrfmiddlewaretoken]').val()
+        },
+        data: JSON.stringify({
+            action: 'duplicate_order',
+            options: options
+        }),
+        success: function(response) {
+            toastr.success('Orden duplicada exitosamente');
+
+            // Mostrar opción de ir a la nueva orden
+            Swal.fire({
+                title: 'Orden Duplicada',
+                html: `
+                    <div class="text-center">
+                        <div class="avatar avatar-xl mx-auto mb-3">
+                            <span class="avatar-initial rounded bg-label-success">
+                                <i class="ri-file-copy-line ri-24px"></i>
+                            </span>
+                        </div>
+                        <h6 class="mb-2">Nueva Orden Creada</h6>
+                        <p class="text-muted mb-3">
+                            Número de Orden: <strong>${response.new_po_number}</strong>
+                        </p>
+                        <p class="text-muted">¿Desea ir a la nueva orden?</p>
+                    </div>
+                `,
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonText: 'Ir a Nueva Orden',
+                cancelButtonText: 'Quedarse Aquí',
+                customClass: {
+                    confirmButton: 'btn btn-primary me-2',
+                    cancelButton: 'btn btn-outline-secondary'
+                },
+                buttonsStyling: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = `/app/purchase-orders/detail/${response.new_po_id}/`;
+                }
+            });
+        },
+        error: function(xhr) {
+            console.error('Error duplicating order:', xhr);
+            const errorMsg = xhr.responseJSON?.error || 'Error al duplicar la orden';
+            toastr.error(errorMsg);
+        },
+        complete: function() {
+            hideLoading();
+        }
+    });
+}
+
+// ✅ 4. Función para enviar recordatorio
+function sendReminder() {
+    if (!currentPO) {
+        toastr.error('No hay datos de la orden disponibles');
+        return;
+    }
+
+    // Modal de configuración del recordatorio
+    Swal.fire({
+        title: 'Enviar Recordatorio',
+        html: `
+            <div class="text-start">
+                <div class="alert alert-info d-flex align-items-center mb-3">
+                    <i class="ri-mail-line me-2"></i>
+                    <span>Se enviará un recordatorio al proveedor</span>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Proveedor:</label>
+                    <div class="d-flex align-items-center p-2 bg-light rounded">
+                        <i class="ri-building-line me-2"></i>
+                        <div>
+                            <div class="fw-medium">${currentPO.supplier?.company_name || 'Sin proveedor'}</div>
+                            <small class="text-muted">${currentPO.supplier?.email || 'Sin email'}</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="reminderType" class="form-label">Tipo de Recordatorio</label>
+                        <select id="reminderType" class="form-select">
+                            <option value="delivery">Recordatorio de Entrega</option>
+                            <option value="confirmation">Solicitud de Confirmación</option>
+                            <option value="status_update">Actualización de Estado</option>
+                            <option value="custom">Mensaje Personalizado</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-floating form-floating-outline">
+                            <textarea
+                                id="reminderMessage"
+                                class="form-control"
+                                placeholder="Mensaje adicional..."
+                                style="height: 100px"
+                            ></textarea>
+                            <label for="reminderMessage">Mensaje Adicional</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeOrderDetails" checked>
+                            <label class="form-check-label" for="includeOrderDetails">
+                                Incluir detalles de la orden
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Enviar Recordatorio',
+        cancelButtonText: 'Cancelar',
+        customClass: {
+            confirmButton: 'btn btn-primary me-2',
+            cancelButton: 'btn btn-outline-secondary'
+        },
+        buttonsStyling: false,
+        preConfirm: () => {
+            return {
+                type: document.getElementById('reminderType').value,
+                message: document.getElementById('reminderMessage').value.trim(),
+                include_details: document.getElementById('includeOrderDetails').checked
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            performSendReminder(result.value);
+        }
+    });
+}
+
+function performSendReminder(options) {
+    showLoading('Enviando recordatorio...');
+
+    $.ajax({
+        url: API_URLS.poActions,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: {
+            'X-CSRFToken': window.PO_CONFIG?.csrfToken || $('[name=csrfmiddlewaretoken]').val()
+        },
+        data: JSON.stringify({
+            action: 'send_reminder',
+            reminder_options: options
+        }),
+        success: function(response) {
+            toastr.success('Recordatorio enviado exitosamente');
+
+            // Mostrar confirmación
+            Swal.fire({
+                title: 'Recordatorio Enviado',
+                html: `
+                    <div class="text-center">
+                        <div class="avatar avatar-xl mx-auto mb-3">
+                            <span class="avatar-initial rounded bg-label-success">
+                                <i class="ri-mail-check-line ri-24px"></i>
+                            </span>
+                        </div>
+                        <p class="text-muted">
+                            El recordatorio ha sido enviado a:<br>
+                            <strong>${currentPO.supplier?.email || 'Proveedor'}</strong>
+                        </p>
+                    </div>
+                `,
+                icon: 'success',
+                confirmButtonText: 'Entendido',
+                customClass: {
+                    confirmButton: 'btn btn-primary'
+                },
+                buttonsStyling: false
+            });
+
+            // Registrar en historial si existe
+            addToOrderHistory({
+                action: 'reminder_sent',
+                description: `Recordatorio enviado: ${options.type}`,
+                timestamp: new Date().toISOString()
+            });
+        },
+        error: function(xhr) {
+            console.error('Error sending reminder:', xhr);
+            const errorMsg = xhr.responseJSON?.error || 'Error al enviar el recordatorio';
+            toastr.error(errorMsg);
+        },
+        complete: function() {
+            hideLoading();
+        }
+    });
+}
+
+// ✅ 5. Función para renderizar historial de orden
+function renderOrderHistory(history) {
+    if (!history || !Array.isArray(history)) {
+        $('#orderHistoryContainer').html(`
+            <div class="text-center py-4">
+                <i class="ri-history-line ri-48px text-muted mb-3"></i>
+                <p class="text-muted">No hay historial disponible</p>
+            </div>
+        `);
+        return;
+    }
+
+    if (history.length === 0) {
+        $('#orderHistoryContainer').html(`
+            <div class="text-center py-4">
+                <i class="ri-time-line ri-48px text-muted mb-3"></i>
+                <p class="text-muted">Aún no hay actividades registradas</p>
+            </div>
+        `);
+        return;
+    }
+
+    const historyHtml = history.map(item => {
+        const actionIcon = getHistoryActionIcon(item.action);
+        const actionColor = getHistoryActionColor(item.action);
+        const timeAgo = moment(item.timestamp).fromNow();
+        const fullDate = moment(item.timestamp).format('DD/MM/YYYY HH:mm');
+
+        return `
+            <div class="timeline-item">
+                <div class="timeline-point timeline-point-${actionColor}">
+                    <i class="${actionIcon}"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <h6 class="mb-0">${item.title || getHistoryActionTitle(item.action)}</h6>
+                        <small class="text-muted" title="${fullDate}">${timeAgo}</small>
+                    </div>
+                    <p class="text-muted mb-2">${item.description}</p>
+                    ${item.user ? `
+                        <div class="d-flex align-items-center">
+                            <div class="avatar avatar-xs me-2">
+                                <span class="avatar-initial rounded bg-label-primary">
+                                    ${item.user.charAt(0).toUpperCase()}
+                                </span>
+                            </div>
+                            <small class="text-muted">por ${item.user}</small>
+                        </div>
+                    ` : ''}
+                    ${item.details ? `
+                        <div class="mt-2">
+                            <small class="text-info">${item.details}</small>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    $('#orderHistoryContainer').html(`
+        <div class="timeline">
+            ${historyHtml}
+        </div>
+    `);
+}
+
+function getHistoryActionIcon(action) {
+    const icons = {
+        'created': 'ri-add-circle-line',
+        'status_changed': 'ri-refresh-line',
+        'items_received': 'ri-truck-line',
+        'cancelled': 'ri-close-circle-line',
+        'reminder_sent': 'ri-mail-line',
+        'duplicated': 'ri-file-copy-line',
+        'exported': 'ri-download-line',
+        'updated': 'ri-edit-line'
+    };
+    return icons[action] || 'ri-information-line';
+}
+
+function getHistoryActionColor(action) {
+    const colors = {
+        'created': 'success',
+        'status_changed': 'primary',
+        'items_received': 'warning',
+        'cancelled': 'danger',
+        'reminder_sent': 'info',
+        'duplicated': 'secondary',
+        'exported': 'dark',
+        'updated': 'primary'
+    };
+    return colors[action] || 'secondary';
+}
+
+function getHistoryActionTitle(action) {
+    const titles = {
+        'created': 'Orden Creada',
+        'status_changed': 'Estado Cambiado',
+        'items_received': 'Items Recibidos',
+        'cancelled': 'Orden Cancelada',
+        'reminder_sent': 'Recordatorio Enviado',
+        'duplicated': 'Orden Duplicada',
+        'exported': 'PDF Exportado',
+        'updated': 'Orden Actualizada'
+    };
+    return titles[action] || 'Actividad';
+}
+
+// ✅ Función auxiliar para agregar al historial
+function addToOrderHistory(historyItem) {
+    if (!currentPO.history) {
+        currentPO.history = [];
+    }
+
+    currentPO.history.unshift({
+        ...historyItem,
+        id: Date.now(),
+        user: window.currentUser?.username || 'Usuario',
+        timestamp: historyItem.timestamp || new Date().toISOString()
+    });
+
+    renderOrderHistory(currentPO.history);
+}
+
+// ✅ Función para notificar cambio de estado
+function triggerStatusChangeNotification(newStatus) {
+    // Emitir evento personalizado para otros componentes
+    const event = new CustomEvent('poStatusChanged', {
+        detail: {
+            poId: currentPO.id,
+            oldStatus: currentPO.status,
+            newStatus: newStatus,
+            poNumber: currentPO.po_number
+        }
+    });
+
+    window.dispatchEvent(event);
+
+    // Actualizar título de la página si es necesario
+    const statusConfig = getStatusConfig(newStatus);
+    document.title = `${currentPO.po_number} - ${statusConfig.text} | Purchase Orders`;
+}
+
+// ✅ Funciones auxiliares para validación
+function validateOrderForAction(action) {
+    if (!currentPO) {
+        toastr.error('No hay datos de la orden disponibles');
+        return false;
+    }
+
+    const validations = {
+        'change_status': () => currentPO.status !== 'completed' && currentPO.status !== 'cancelled',
+        'cancel_order': () => !['completed', 'cancelled'].includes(currentPO.status),
+        'duplicate_order': () => true, // Siempre permitido
+        'send_reminder': () => currentPO.status !== 'cancelled' && currentPO.supplier?.email,
+        'receive_items': () => ['confirmed', 'partially_received'].includes(currentPO.status)
+    };
+
+    const validator = validations[action];
+    if (validator && !validator()) {
+        toastr.warning('Esta acción no está disponible en el estado actual');
+        return false;
+    }
+
+    return true;
+}
 });
