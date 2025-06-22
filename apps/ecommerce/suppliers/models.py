@@ -7,12 +7,12 @@ class Supplier(models.Model):
     company_name = models.CharField(max_length=255, verbose_name="Nombre de la Empresa")
     legal_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Razón Social")
     tax_id = models.CharField(
-        max_length=20, 
-        unique=True, 
+        max_length=20,
+        unique=True,
         verbose_name="RUC/NIT",
         help_text="Número de identificación tributaria"
     )
-    
+
     # Información de contacto
     contact_person = models.CharField(max_length=255, verbose_name="Persona de Contacto")
     email = models.EmailField(verbose_name="Email Principal", blank=True)
@@ -21,26 +21,26 @@ class Supplier(models.Model):
         message="El número de teléfono debe estar en formato: '+999999999'. Hasta 15 dígitos permitidos."
     )
     phone_primary = models.CharField(
-        validators=[phone_regex], 
-        max_length=17, 
+        validators=[phone_regex],
+        max_length=17,
         verbose_name="Teléfono Principal"
     )
     phone_secondary = models.CharField(
-        validators=[phone_regex], 
-        max_length=17, 
-        blank=True, 
+        validators=[phone_regex],
+        max_length=17,
+        blank=True,
         null=True,
         verbose_name="Teléfono Secundario"
     )
     website = models.URLField(blank=True, null=True, verbose_name="Sitio Web")
-    
+
     # Dirección
     address_line1 = models.CharField(max_length=255, verbose_name="Dirección Línea 1")
     address_line2 = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dirección Línea 2")
     city = models.CharField(max_length=100, verbose_name="Ciudad")
     state = models.CharField(max_length=100, verbose_name="Departamento/Estado")
     country = models.CharField(max_length=100, default="Perú", verbose_name="País")
-    
+
     # Información comercial
     payment_terms = models.CharField(
         max_length=100,
@@ -51,12 +51,12 @@ class Supplier(models.Model):
 
     credit_limit = models.DecimalField(
         blank=True,
-        max_digits=12, 
-        decimal_places=2, 
+        max_digits=12,
+        decimal_places=2,
         default=0.00,
         verbose_name="Límite de Crédito"
     )
-    
+
     # Categorización
     SUPPLIER_CATEGORIES = [
         ("products", "Productos"),
@@ -72,11 +72,11 @@ class Supplier(models.Model):
         default="products",
         verbose_name="Categoría"
     )
-    
+
     # Estado y evaluación
     is_active = models.BooleanField(default=True, verbose_name="Activo")
     is_preferred = models.BooleanField(default=False, verbose_name="Proveedor Preferido")
-    
+
     RATING_CHOICES = [
         (1, "⭐ - Muy Malo"),
         (2, "⭐⭐ - Malo"),
@@ -89,23 +89,26 @@ class Supplier(models.Model):
         default=3,
         verbose_name="Calificación"
     )
-    
+
     # Información adicional
     notes = models.TextField(blank=True, null=True, verbose_name="Notas")
     logo = models.ImageField(upload_to='suppliers/logos/', blank=True, null=True, verbose_name="Logo")
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
-    
+
     class Meta:
         ordering = ['company_name']
         verbose_name = "Proveedor"
         verbose_name_plural = "Proveedores"
-    
+
     def __str__(self):
         return self.company_name
-    
+    #tomar phone_primary o phone_secondary si phone_primary no está disponible get_phone
+    def get_phone(self):
+        """Retorna el número de teléfono primario o secundario si el primario no está disponible"""
+        return self.phone_primary if self.phone_primary else self.phone_secondary
     @property
     def full_address(self):
         """Retorna la dirección completa formateada"""
@@ -117,12 +120,12 @@ class Supplier(models.Model):
             address_parts.append(self.postal_code)
         address_parts.append(self.country)
         return ", ".join(address_parts)
-    
+
     @property
     def contact_info(self):
         """Retorna información de contacto resumida"""
         return f"{self.contact_person} - {self.email} - {self.phone_primary}"
-    
+
     @property
     def rating_display(self):
         """Retorna la calificación con estrellas"""
@@ -132,8 +135,8 @@ class Supplier(models.Model):
 # Modelo adicional para contactos múltiples (opcional)
 class SupplierContact(models.Model):
     supplier = models.ForeignKey(
-        Supplier, 
-        on_delete=models.CASCADE, 
+        Supplier,
+        on_delete=models.CASCADE,
         related_name='contacts',
         verbose_name="Proveedor"
     )
@@ -145,18 +148,18 @@ class SupplierContact(models.Model):
         message="El número de teléfono debe estar en formato: '+999999999'. Hasta 15 dígitos permitidos."
     )
     phone = models.CharField(
-        validators=[phone_regex], 
-        max_length=17, 
+        validators=[phone_regex],
+        max_length=17,
         verbose_name="Teléfono"
     )
     is_primary = models.BooleanField(default=False, verbose_name="Contacto Principal")
     notes = models.TextField(blank=True, null=True, verbose_name="Notas")
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         ordering = ['-is_primary', 'name']
         verbose_name = "Contacto del Proveedor"
         verbose_name_plural = "Contactos del Proveedor"
-    
+
     def __str__(self):
         return f"{self.name} - {self.supplier.company_name}"
