@@ -7,52 +7,271 @@ from rest_framework.decorators import action
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from django.db import models
-from django.db.models import Q, Count, Sum, Avg
+from django.db import models, transaction
+from django.db.models import Q, Count, Sum, Avg, F
 from django.http import HttpResponse
 from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 from web_project import TemplateLayout
 from datetime import date, timedelta
-from .models import PurchaseOrder, PurchaseOrderItem
-from apps.ecommerce.suppliers.models import Supplier
-from .serializers import PurchasingSupplierSerializer
-from apps.ecommerce.products.models import Product
-
 from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from typing import Dict, List, Any
+import logging
+import json
 
+# Imports de modelos y serializers
+from .models import PurchaseOrder, PurchaseOrderItem
+from apps.ecommerce.suppliers.models import Supplier
+from apps.ecommerce.products.models import Product
 
 from .serializers import (
     PurchaseOrderSerializer,
     PurchaseOrderCreateSerializer,
     PurchaseOrderListSerializer,
     PurchaseOrderItemSerializer,
-    ReceiveItemsSerializer
+    ReceiveItemsSerializer,
+    PurchasingSupplierSerializer,
+    PurchasingProductSerializer,
+    ItemReceptionDetailSerializer,
+    ReceptionSummarySerializer,
+    PurchaseOrderActionSerializer,
+    DuplicateOrderOptionsSerializer,
+    ReminderOptionsSerializer
 )
+
 from .services import (
     PurchaseOrderManagementService,
     PurchaseOrderCalculationService,
     PurchaseOrderReportService
 )
-from apps.ecommerce.suppliers.models import Supplier
-from apps.ecommerce.products.models import Product
-from rest_framework import serializers
-import logging
 
 logger = logging.getLogger(__name__)
+
+# ================================
+# SERVICIOS PARA RECEPCIÓN DE ITEMS
+# ================================
+
+class PurchaseOrderReceptionService:
+    """
+    Servicio especializado para recepción de items
+    """
+
+    @staticmethod
+    @transaction.atomic
+    def receive_items(purchase_order: PurchaseOrder, reception_data: Dict[str, Any], user=None) -> Dict[str, Any]:
+        """
+        Procesar recepción de items de una orden de compra
+
+        Args:
+            purchase_order: Orden de compra
+            reception_data: Datos de recepción {received_items: [], general_notes: '', update_inventory: bool}
+            user: Usuario que realiza la recepción
+
+        Returns:
+            Dict con resumen de la recepción
+        """
+        received_items = reception_data.get('received_items', [])
+        general_notes = reception_data.get('general_notes', '')
+        update_inventory = reception_data.get('update_inventory', True)
+
+        if not received_items:
+            raise ValidationError("No se especificaron items para recibir")
+
+        # Validar estado de la orden
+        if purchase_order.status not in ['confirmed', 'partially_received']:
+            raise ValidationError("No se pueden recibir items en el estado actual de la orden")
+
+        reception_details = []
+        total_quantity_received = 0
+        items_processed = 0
+        item_errors = []
+
+        # Procesar cada item
+        for item_data in received_items:
+            try:
+                detail = PurchaseOrderReceptionService._process_single_item(
+                    purchase_order,
+                    item_data,
+                    update_inventory,
+                    user
+                )
+                reception_details.append(detail)
+                total_quantity_received += detail['quantity_received_now']
+                items_processed += 1
+
+            except ValidationError as e:
+                item_errors.append({
+                    'item_id': item_data.get('item_id'),
+                    'message': str(e)
+                })
+            except Exception as e:
+                logger.error(f"Error processing item {item_data.get('item_id')}: {str(e)}")
+                item_errors.append({
+                    'item_id': item_data.get('item_id'),
+                    'message': f"Error interno: {str(e)}"
+                })
+
+        if item_errors:
+            raise ValidationError({
+                'item_errors': item_errors,
+                'message': f"Errores en {len(item_errors)} de {len(received_items)} items"
+            })
+
+        # Actualizar estado de la orden
+        new_status = PurchaseOrderReceptionService._update_order_status(purchase_order)
+
+        # Agregar notas generales
+        if general_notes:
+            timestamp = timezone.now().strftime('%d/%m/%Y %H:%M')
+            reception_note = f"\n--- RECEPCIÓN {timestamp} ---\n{general_notes}"
+            purchase_order.notes = (purchase_order.notes or '') + reception_note
+            purchase_order.save(update_fields=['notes'])
+
+        # Crear registro de recepción
+        PurchaseOrderReceptionService._create_reception_log(
+            purchase_order,
+            reception_details,
+            general_notes,
+            user
+        )
+
+        # Preparar resumen
+        summary = {
+            'items_received': items_processed,
+            'total_quantity': total_quantity_received,
+            'new_status': new_status,
+            'inventory_updated': update_inventory,
+            'general_notes': general_notes,
+            'reception_details': reception_details
+        }
+
+        logger.info(f"Items received for PO {purchase_order.po_number}: {items_processed} items, {total_quantity_received} units")
+
+        return summary
+
+    @staticmethod
+    def _process_single_item(purchase_order: PurchaseOrder, item_data: Dict, update_inventory: bool, user=None) -> Dict:
+        """Procesar recepción de un item individual"""
+        item_id = item_data.get('item_id')
+        quantity_to_receive = item_data.get('quantity_received')
+        reception_notes = item_data.get('reception_notes', '')
+
+        try:
+            po_item = purchase_order.items.select_related('product').get(id=item_id)
+        except PurchaseOrderItem.DoesNotExist:
+            raise ValidationError(f"Item {item_id} no encontrado en la orden")
+
+        # Validar cantidad
+        pending_quantity = po_item.quantity_ordered - po_item.quantity_received
+        if quantity_to_receive > pending_quantity:
+            raise ValidationError(
+                f"Cantidad excede pendiente. Pendiente: {pending_quantity}, Solicitado: {quantity_to_receive}"
+            )
+
+        if quantity_to_receive <= 0:
+            raise ValidationError("La cantidad debe ser mayor a cero")
+
+        # Actualizar cantidades en la orden
+        previous_received = po_item.quantity_received
+        po_item.quantity_received += quantity_to_receive
+
+        # Agregar notas de recepción si existen
+        if reception_notes:
+            timestamp = timezone.now().strftime('%d/%m/%Y %H:%M')
+            item_note = f"\nRecepción {timestamp}: {reception_notes}"
+            po_item.notes = (po_item.notes or '') + item_note
+
+        po_item.save(update_fields=['quantity_received', 'notes'])
+
+        # Actualizar inventario si se solicita
+        if update_inventory and po_item.product:
+            try:
+                po_item.product.stock_current += quantity_to_receive
+                po_item.product.save(update_fields=['stock_current'])
+
+                logger.info(f"Inventory updated for product {po_item.product.code}: +{quantity_to_receive}")
+
+            except Exception as e:
+                logger.error(f"Error updating inventory for product {po_item.product.id}: {str(e)}")
+                # No fallar la recepción por error de inventario
+
+        return {
+            'item_id': item_id,
+            'product_name': po_item.product.name if po_item.product else 'Producto eliminado',
+            'quantity_ordered': po_item.quantity_ordered,
+            'quantity_previously_received': previous_received,
+            'quantity_received_now': quantity_to_receive,
+            'new_total_received': po_item.quantity_received,
+            'pending_quantity': po_item.quantity_ordered - po_item.quantity_received,
+            'reception_notes': reception_notes
+        }
+
+    @staticmethod
+    def _update_order_status(purchase_order: PurchaseOrder) -> str:
+        """Actualizar estado de la orden basado en recepciones"""
+        items = purchase_order.items.all()
+
+        if not items:
+            return purchase_order.status
+
+        # Verificar si todos los items están completamente recibidos
+        all_complete = all(item.quantity_received >= item.quantity_ordered for item in items)
+        any_received = any(item.quantity_received > 0 for item in items)
+
+        if all_complete:
+            new_status = 'completed'
+        elif any_received:
+            new_status = 'partially_received'
+        else:
+            new_status = purchase_order.status
+
+        if new_status != purchase_order.status:
+            purchase_order.status = new_status
+            purchase_order.save(update_fields=['status'])
+
+        return new_status
+
+    @staticmethod
+    def _create_reception_log(purchase_order: PurchaseOrder, reception_details: List[Dict], general_notes: str, user=None):
+        """Crear log de recepción (opcional - si tienes modelo de logs)"""
+        try:
+            # Si tienes un modelo de logs de recepción, crear aquí
+            # PurchaseOrderReceptionLog.objects.create(
+            #     purchase_order=purchase_order,
+            #     items_received=len(reception_details),
+            #     total_quantity=sum(detail['quantity_received_now'] for detail in reception_details),
+            #     reception_data={
+            #         'details': reception_details,
+            #         'timestamp': timezone.now().isoformat()
+            #     },
+            #     general_notes=general_notes,
+            #     received_by=user,
+            #     order_status_after=purchase_order.status,
+            #     inventory_updated=True
+            # )
+            logger.info(f"Reception log created for PO {purchase_order.po_number}")
+        except Exception as e:
+            logger.error(f"Error creating reception log: {str(e)}")
+
+# ================================
+# VISTAS PRINCIPALES
+# ================================
 
 class PurchaseOrderListCreateAPIView(generics.ListCreateAPIView):
     """API para listar y crear órdenes de compra"""
     permission_classes = [IsAuthenticated]
+
     def list(self, request, *args, **kwargs):
-            queryset = self.filter_queryset(self.get_queryset())
-            serializer = self.get_serializer(queryset, many=True)
-            return Response({
-                "data": serializer.data
-            })
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "data": serializer.data
+        })
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return PurchaseOrderCreateSerializer
@@ -92,6 +311,89 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
 
+    def create(self, request, *args, **kwargs):
+        """Override create para devolver respuesta correcta"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Crear la orden
+        purchase_order = serializer.save()
+
+        # Usar serializer completo para respuesta
+        response_serializer = PurchaseOrderSerializer(purchase_order)
+
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return PurchaseOrderCreateSerializer
+        elif self.action == 'list':
+            return PurchaseOrderListSerializer
+        return PurchaseOrderSerializer
+
+    # ================================
+    # ACCIÓN DE RECEPCIÓN DE ITEMS
+    # ================================
+
+    @action(detail=True, methods=['post'])
+    def receive_items(self, request, pk=None):
+        """Acción para recibir items de la orden"""
+        purchase_order = self.get_object()
+
+        if purchase_order.status not in ['confirmed', 'partially_received']:
+            return Response(
+                {'error': 'No se pueden recibir items en el estado actual'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = ReceiveItemsSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                # Usar el servicio de recepción
+                reception_summary = PurchaseOrderReceptionService.receive_items(
+                    purchase_order,
+                    serializer.validated_data,
+                    request.user
+                )
+
+                # Obtener orden actualizada
+                updated_po = PurchaseOrder.objects.select_related('supplier', 'created_by').prefetch_related(
+                    'items__product'
+                ).get(pk=pk)
+
+                # Serializar orden completa
+                po_serializer = PurchaseOrderSerializer(updated_po)
+
+                return Response({
+                    'purchase_order': po_serializer.data,
+                    'reception_summary': reception_summary,
+                    'message': 'Items recibidos correctamente'
+                })
+
+            except ValidationError as e:
+                if hasattr(e, 'message_dict'):
+                    error_detail = e.message_dict
+                elif hasattr(e, 'detail'):
+                    error_detail = e.detail
+                else:
+                    error_detail = str(e)
+
+                return Response(
+                    {'error': 'Error en la recepción', 'details': error_detail},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                logger.error(f"Error in receive_items: {str(e)}")
+                return Response(
+                    {'error': 'Error interno del servidor'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ================================
+    # ACCIONES MÚLTIPLES
+    # ================================
 
     @action(detail=True, methods=['post'])
     def actions(self, request, pk=None):
@@ -168,11 +470,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         if new_status in ['sent', 'confirmed']:
             self._notify_supplier_status_change(purchase_order, new_status)
 
-        # Serializar respuesta
-        serializer = PurchaseOrderSerializer(purchase_order)
+        # Serializar respuesta actualizada
+        updated_po = PurchaseOrder.objects.select_related('supplier', 'created_by').prefetch_related('items').get(pk=purchase_order.pk)
+        serializer = PurchaseOrderSerializer(updated_po)
         return Response(serializer.data)
 
-    def _handle_cancel_order(self, purchase_order, data,user):
+    def _handle_cancel_order(self, purchase_order, data, user):
         """Manejar cancelación de orden"""
         reason = data.get('reason', '').strip()
 
@@ -206,11 +509,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         # Notificar cancelación al proveedor
         self._notify_supplier_cancellation(purchase_order, reason)
 
-        # Serializar respuesta
-        serializer = PurchaseOrderSerializer(purchase_order)
+        # Serializar respuesta actualizada
+        updated_po = PurchaseOrder.objects.select_related('supplier', 'created_by').prefetch_related('items').get(pk=purchase_order.pk)
+        serializer = PurchaseOrderSerializer(updated_po)
         return Response(serializer.data)
 
-    def _handle_duplicate_order(self, purchase_order, data,user):
+    def _handle_duplicate_order(self, purchase_order, data, user):
         """Manejar duplicación de orden"""
         options = data.get('options', {})
         expected_delivery = options.get('expected_delivery')
@@ -277,7 +581,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def _handle_send_reminder(self, purchase_order, data,user):
+    def _handle_send_reminder(self, purchase_order, data, user):
         """Manejar envío de recordatorio"""
         reminder_options = data.get('reminder_options', {})
         reminder_type = reminder_options.get('type', 'delivery')
@@ -321,6 +625,10 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    # ================================
+    # OTRAS ACCIONES
+    # ================================
+
     @action(detail=True, methods=['get'])
     def history(self, request, pk=None):
         """Obtener historial de la orden"""
@@ -332,6 +640,32 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         return Response({
             'history': history,
             'total_events': len(history)
+        })
+
+    @action(detail=True, methods=['get'])
+    def reception_history(self, request, pk=None):
+        """Obtener historial de recepciones de la orden"""
+        purchase_order = self.get_object()
+
+        # Si tienes el modelo de logs
+        # reception_logs = purchase_order.reception_logs.all().order_by('-received_at')
+
+        history_data = []
+        # for log in reception_logs:
+        #     history_data.append({
+        #         'id': log.id,
+        #         'received_at': log.received_at,
+        #         'received_by': log.received_by.username if log.received_by else 'Sistema',
+        #         'items_received': log.items_received,
+        #         'total_quantity': log.total_quantity,
+        #         'general_notes': log.general_notes,
+        #         'order_status_after': log.order_status_after,
+        #         'details': log.reception_data.get('details', [])
+        #     })
+
+        return Response({
+            'reception_history': history_data,
+            'total_receptions': len(history_data)
         })
 
     @action(detail=True, methods=['get'])
@@ -349,7 +683,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 purchase_order,
                 'exported',
                 'PDF exportado',
-                request.user
+                self.request.user
             )
 
             return pdf_response
@@ -361,14 +695,13 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    # ✅ Métodos auxiliares privados
+    # ================================
+    # MÉTODOS AUXILIARES PRIVADOS
+    # ================================
 
     def _add_to_history(self, purchase_order, action, description, user):
         """Agregar evento al historial de la orden"""
         try:
-            # Si existe un modelo de historial, usarlo
-            # Si no, agregar al campo JSON
-
             history_entry = {
                 'action': action,
                 'description': description,
@@ -377,21 +710,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 'details': None
             }
 
-            # Aquí puedes implementar tu sistema de historial preferido
             # Opción 1: Campo JSON en el modelo
             if hasattr(purchase_order, 'history_json'):
                 if not purchase_order.history_json:
                     purchase_order.history_json = []
                 purchase_order.history_json.insert(0, history_entry)
                 purchase_order.save(update_fields=['history_json'])
-
-            # Opción 2: Modelo separado de historial
-            # PurchaseOrderHistory.objects.create(
-            #     purchase_order=purchase_order,
-            #     action=action,
-            #     description=description,
-            #     user=user
-            # )
 
         except Exception as e:
             logger.error(f"Error adding to history: {str(e)}")
@@ -402,14 +726,6 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             # Opción 1: Desde campo JSON
             if hasattr(purchase_order, 'history_json') and purchase_order.history_json:
                 return purchase_order.history_json
-
-            # Opción 2: Desde modelo de historial
-            # history = PurchaseOrderHistory.objects.filter(
-            #     purchase_order=purchase_order
-            # ).order_by('-created_at').values(
-            #     'action', 'description', 'user__username', 'created_at'
-            # )
-            # return list(history)
 
             # Historial por defecto basado en timestamps del modelo
             return [
@@ -556,55 +872,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Error notifying cancellation: {str(e)}")
 
-    def create(self, request, *args, **kwargs):
-        """Override create para devolver respuesta correcta"""
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        # Crear la orden
-        purchase_order = serializer.save()
-
-        # ✅ Usar serializer completo para respuesta
-        response_serializer = PurchaseOrderSerializer(purchase_order)
-
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-    def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
-            return PurchaseOrderCreateSerializer
-        elif self.action == 'list':
-            return PurchaseOrderListSerializer
-        return PurchaseOrderSerializer
-
-    @action(detail=True, methods=['post'])
-    def receive_items(self, request, pk=None):
-        """Acción para recibir items de la orden"""
-        purchase_order = self.get_object()
-
-        if purchase_order.status not in ['sent', 'partial']:
-            return Response(
-                {'error': 'No se pueden recibir items en el estado actual'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        serializer = ReceiveItemsSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                service = PurchaseOrderManagementService()
-                service.receive_items(purchase_order, serializer.validated_data['received_items'])
-
-                # Actualizar serializer
-                updated_po = PurchaseOrder.objects.get(pk=pk)
-                response_serializer = PurchaseOrderSerializer(updated_po)
-
-                return Response(response_serializer.data)
-
-            except Exception as e:
-                return Response(
-                    {'error': str(e)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# ================================
+# OTRAS VISTAS
+# ================================
 
 class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
     """ViewSet para items de órdenes de compra"""
@@ -646,6 +916,78 @@ class QuickPurchaseOrderAPIView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class PurchaseOrderQuickReceiveAPIView(APIView):
+    """API para recepción rápida desde la lista"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            purchase_order = get_object_or_404(PurchaseOrder, pk=pk)
+
+            if purchase_order.status not in ['confirmed', 'partially_received']:
+                return Response(
+                    {'error': 'Estado no válido para recepción'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            action = request.data.get('action')  # 'partial' o 'complete'
+
+            if action == 'complete':
+                # Marcar todos los items como completamente recibidos
+                items_to_receive = []
+                for item in purchase_order.items.all():
+                    pending = item.quantity_ordered - item.quantity_received
+                    if pending > 0:
+                        items_to_receive.append({
+                            'item_id': item.id,
+                            'quantity_received': pending,
+                            'reception_notes': 'Recepción completa automática'
+                        })
+
+                if items_to_receive:
+                    reception_data = {
+                        'received_items': items_to_receive,
+                        'general_notes': 'Recepción completa realizada desde lista',
+                        'update_inventory': True
+                    }
+
+                    summary = PurchaseOrderReceptionService.receive_items(
+                        purchase_order, reception_data, request.user
+                    )
+
+                    return Response({
+                        'message': 'Orden marcada como completamente recibida',
+                        'summary': summary
+                    })
+                else:
+                    return Response(
+                        {'message': 'La orden ya está completamente recibida'},
+                        status=status.HTTP_200_OK
+                    )
+
+            elif action == 'partial':
+                # Cambiar estado a parcialmente recibida sin recibir items específicos
+                purchase_order.status = 'partially_received'
+                purchase_order.save(update_fields=['status'])
+
+                return Response({
+                    'message': 'Orden marcada como parcialmente recibida'
+                })
+
+            else:
+                return Response(
+                    {'error': 'Acción no válida. Use "partial" o "complete"'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Exception as e:
+            logger.error(f"Error in quick receive: {str(e)}")
+            return Response(
+                {'error': 'Error interno del servidor'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 class SupplierPurchaseHistoryAPIView(generics.RetrieveAPIView):
     """API para obtener historial de compras de un proveedor"""
     permission_classes = [IsAuthenticated]
@@ -691,7 +1033,10 @@ class SupplierPurchaseHistoryAPIView(generics.RetrieveAPIView):
             'recent_orders': serializer.data
         })
 
-# Vistas de plantillas
+# ================================
+# VISTAS DE PLANTILLAS
+# ================================
+
 class PurchaseOrderTemplateView(TemplateView):
     """Vista base para plantillas de órdenes de compra"""
 
@@ -699,16 +1044,13 @@ class PurchaseOrderTemplateView(TemplateView):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         return context
 
-
 class PurchaseOrderListView(PurchaseOrderTemplateView):
     """Vista para lista de órdenes de compra"""
     template_name = "app_purchase_orders_list.html"
 
-
 class PurchaseOrderCreateView(PurchaseOrderTemplateView):
     """Vista para crear orden de compra"""
     template_name = "app_purchase_orders_create.html"
-
 
 class PurchaseOrderDetailView(PurchaseOrderTemplateView):
     """Vista para detalles de orden de compra"""
@@ -727,17 +1069,19 @@ class PurchaseOrderDetailView(PurchaseOrderTemplateView):
 
         return context
 
-
 class PurchaseOrderDashboardView(PurchaseOrderTemplateView):
     """Vista para dashboard de órdenes de compra"""
     template_name = "app_purchase_orders_dashboard.html"
+
+# ================================
+# VISTAS PARA SUPPLIERS
+# ================================
 
 class PurchasingSuppliersAPIView(generics.ListAPIView):
     """API para listar suppliers en purchasing con paginación y búsqueda"""
     serializer_class = PurchasingSupplierSerializer
 
     def get_queryset(self):
-        # Remover prefetch_related por ahora para evitar el error
         queryset = Supplier.objects.filter(is_active=True).select_related()
 
         # Filtro por búsqueda
@@ -841,81 +1185,23 @@ class PurchasingSupplierDetailAPIView(generics.RetrieveAPIView):
 
         # Calcular métricas
         completed_orders = orders.filter(status='completed')
-        on_time_orders = completed_orders.filter(
-            delivery_date__lte=models.F('expected_delivery')
-        ).count()
+        # on_time_orders = completed_orders.filter(
+        #     delivery_date__lte=F('expected_delivery')
+        # ).count()
 
         total_spent = orders.aggregate(total=Sum('total_amount'))['total'] or 0
         avg_order_value = orders.aggregate(avg=Avg('total_amount'))['avg'] or 0
 
         return {
             'total_orders': total_orders,
-            'on_time_delivery_rate': round((on_time_orders / completed_orders.count()) * 100, 2) if completed_orders.count() > 0 else 0,
+            'on_time_delivery_rate': 0,  # Calcular cuando tengas delivery_date
             'average_order_value': float(avg_order_value),
             'total_spent': float(total_spent)
         }
 
-class PurchasingProductSerializer(serializers.ModelSerializer):
-    """Serializer específico para productos en purchasing"""
-
-    # Campos principales
-    name = serializers.CharField(read_only=True)
-    code = serializers.CharField(read_only=True)
-    description = serializers.CharField(read_only=True)
-
-    # Información de stock
-    current_stock = serializers.IntegerField(source='stock_current', read_only=True)
-    minimum_stock = serializers.IntegerField(source='stock_minimum', read_only=True)
-    stock_status = serializers.CharField(read_only=True)
-
-    # Información de precios
-    price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
-    last_purchase_price = serializers.SerializerMethodField()
-    average_purchase_price = serializers.SerializerMethodField()
-
-    # Información de categoría
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    category_id = serializers.IntegerField(source='category.id', read_only=True)
-
-    # Información adicional
-    unit_of_measure = serializers.CharField(read_only=True)
-    is_active = serializers.BooleanField(read_only=True)
-
-    # Estadísticas de compras
-    total_orders = serializers.SerializerMethodField()
-    last_order_date = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Product
-        fields = [
-            'id', 'name', 'code', 'description', 'current_stock', 'minimum_stock',
-            'stock_status', 'price', 'last_purchase_price', 'average_purchase_price',
-            'category_name', 'category_id', 'unit_of_measure', 'is_active',
-            'total_orders', 'last_order_date'
-        ]
-
-    def get_last_purchase_price(self, obj):
-        """Último precio de compra"""
-        last_item = obj.purchaseorderitem_set.order_by('-created_at').first()
-        return float(last_item.unit_price) if last_item else 0.0
-
-    def get_average_purchase_price(self, obj):
-        """Precio promedio de compra"""
-        from django.db.models import Avg
-        avg_price = obj.purchaseorderitem_set.aggregate(
-            avg=Avg('unit_price')
-        )['avg']
-        return float(avg_price) if avg_price else 0.0
-
-    def get_total_orders(self, obj):
-        """Total de órdenes donde aparece este producto"""
-        return obj.purchaseorderitem_set.values('purchase_order').distinct().count()
-
-    def get_last_order_date(self, obj):
-        """Fecha de la última orden"""
-        last_item = obj.purchaseorderitem_set.order_by('-created_at').first()
-        return last_item.purchase_order.order_date if last_item else None
-
+# ================================
+# VISTAS PARA PRODUCTS
+# ================================
 
 class PurchasingProductsAPIView(generics.ListAPIView):
     """API para listar productos en purchasing con filtros"""
@@ -943,7 +1229,7 @@ class PurchasingProductsAPIView(generics.ListAPIView):
         low_stock = self.request.query_params.get('low_stock')
         if low_stock and low_stock.lower() == 'true':
             queryset = queryset.filter(
-                stock_current__lte=models.F('stock_minimum')
+                stock_current__lte=F('stock_minimum')
             )
 
         # Ordenamiento
@@ -1006,7 +1292,7 @@ class PurchasingProductDetailAPIView(generics.RetrieveAPIView):
                 'order_date': item.purchase_order.order_date,
                 'quantity': item.quantity_ordered,
                 'unit_price': float(item.unit_price),
-                'total': float(item.line_total)
+                'total': float(item.quantity_ordered * item.unit_price)
             })
 
         return purchases_data
@@ -1027,8 +1313,8 @@ class PurchasingProductDetailAPIView(generics.RetrieveAPIView):
             prices_data.append({
                 'supplier_id': sp['purchase_order__supplier__id'],
                 'supplier_name': sp['purchase_order__supplier__company_name'],
-                'average_price': float(sp['avg_price']),
-                'last_price': float(sp['last_price']),
+                'average_price': float(sp['avg_price']) if sp['avg_price'] else 0.0,
+                'last_price': float(sp['last_price']) if sp['last_price'] else 0.0,
                 'last_order_date': sp['last_order']
             })
 

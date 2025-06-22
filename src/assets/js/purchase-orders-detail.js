@@ -393,55 +393,181 @@ $(document).ready(function() {
         }).join('');
 
         $('#receiveItemsTableBody').html(html);
-    }
+ // Agregar validación en tiempo real
+    $('.receive-qty').on('input change', function() {
+        const input = $(this);
+        const max = parseInt(input.data('max'));
+        const value = parseInt(input.val()) || 0;
 
-    function processItemsReception() {
-        const items = [];
-
-        $('#receiveItemsTableBody tr[data-item-id]').each(function() {
-            const row = $(this);
-            const itemId = row.data('item-id');
-            const quantity = row.find('.receive-qty').val();
-
-            if (quantity && quantity > 0) {
-                items.push({
-                    item_id: itemId,
-                    quantity_received: parseInt(quantity)
-                });
-            }
-        });
-
-        if (items.length === 0) {
-            toastr.warning('Ingrese cantidades a recibir');
-            return;
+        if (value > max) {
+            input.val(max);
+            input.addClass('is-invalid');
+            setTimeout(() => input.removeClass('is-invalid'), 2000);
+            toastr.warning(`Cantidad máxima: ${max} unidades`);
+        } else if (value < 0) {
+            input.val(0);
         }
 
-        showLoading('Procesando recepción...');
+        updateReceiveTotals();
+    });
 
-        $.ajax({
-            url: API_URLS.receiveItems,
-            method: 'POST',
-            contentType: 'application/json',
-            headers: {
-                'X-CSRFToken': window.PO_CONFIG?.csrfToken || $('[name=csrfmiddlewaretoken]').val()
-            },
-            data: JSON.stringify({received_items: items}),
-            success: function(response) {
-                toastr.success('Items recibidos correctamente');
-                $('#receiveItemsModal').modal('hide');
-                loadPODetails();
-            },
-            error: function(xhr) {
-                console.error('Error receiving items:', xhr);
-                const errorMsg = xhr.responseJSON?.error || 'Error al procesar la recepción';
-                toastr.error(errorMsg);
-            },
-            complete: function() {
-                hideLoading();
-            }
-        });
+    updateReceiveTotals();
+
+
+    }
+function updateReceiveTotals() {
+    let totalToReceive = 0;
+    let itemsToReceive = 0;
+
+    $('.receive-qty').each(function() {
+        const qty = parseInt($(this).val()) || 0;
+        if (qty > 0) {
+            totalToReceive += qty;
+            itemsToReceive++;
+        }
+    });
+
+    $('#totalToReceive').text(totalToReceive);
+    $('#itemsToReceive').text(itemsToReceive);
+
+    // Habilitar/deshabilitar botón de confirmación
+    $('#confirmReceiveBtn').prop('disabled', totalToReceive === 0);
+}
+   function processItemsReception() {
+    const items = [];
+    let hasValidItems = false;
+
+    $('#receiveItemsTableBody tr[data-item-id]').each(function() {
+        const row = $(this);
+        const itemId = row.data('item-id');
+        const quantity = parseInt(row.find('.receive-qty').val()) || 0;
+        const notes = row.find('.item-notes').val().trim();
+
+        if (quantity > 0) {
+            items.push({
+                item_id: itemId,
+                quantity_received: quantity,
+                reception_notes: notes || ''
+            });
+            hasValidItems = true;
+        }
+    });
+
+    if (!hasValidItems) {
+        toastr.warning('Ingrese al menos una cantidad a recibir');
+        return;
     }
 
+    // Modal de confirmación final
+    Swal.fire({
+        title: 'Confirmar Recepción',
+        html: `
+            <div class="text-start">
+                <div class="alert alert-info">
+                    <strong>📦 Items a recibir:</strong> ${items.length}<br>
+                    <strong>🔢 Total unidades:</strong> ${items.reduce((sum, item) => sum + item.quantity_received, 0)}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Observaciones Generales (opcional):</label>
+                    <textarea id="generalNotes" class="form-control" rows="3"
+                              placeholder="Comentarios sobre la recepción en general..."></textarea>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="updateInventory" checked>
+                    <label class="form-check-label" for="updateInventory">
+                        Actualizar inventario automáticamente
+                    </label>
+                </div>
+            </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar Recepción',
+        cancelButtonText: 'Cancelar',
+        customClass: {
+            confirmButton: 'btn btn-success me-2',
+            cancelButton: 'btn btn-outline-secondary'
+        },
+        buttonsStyling: false,
+        preConfirm: () => {
+            return {
+                items: items,
+                general_notes: document.getElementById('generalNotes').value.trim(),
+                update_inventory: document.getElementById('updateInventory').checked
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            performItemsReception(result.value);
+        }
+    });
+}
+function performItemsReception(receptionData) {
+    showLoading('Procesando recepción...');
+
+    $.ajax({
+        url: API_URLS.receiveItems,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: {
+            'X-CSRFToken': window.PO_CONFIG?.csrfToken || $('[name=csrfmiddlewaretoken]').val()
+        },
+        data: JSON.stringify({
+            received_items: receptionData.items,
+            general_notes: receptionData.general_notes,
+            update_inventory: receptionData.update_inventory
+        }),
+        success: function(response) {
+            toastr.success('Items recibidos correctamente');
+            $('#receiveItemsModal').modal('hide');
+
+            // Mostrar resumen de recepción
+            showReceptionSummary(response);
+
+            // Recargar datos de la orden
+            loadPODetails();
+        },
+        error: function(xhr) {
+            console.error('Error receiving items:', xhr);
+            const errorData = xhr.responseJSON || {};
+            const errorMsg = errorData.error || 'Error al procesar la recepción';
+
+            // Mostrar errores específicos si existen
+            if (errorData.item_errors) {
+                showItemErrors(errorData.item_errors);
+            } else {
+                toastr.error(errorMsg);
+            }
+        },
+        complete: function() {
+            hideLoading();
+        }
+    });
+}
+
+function showItemErrors(itemErrors) {
+    const errorHtml = itemErrors.map(error => `
+        <div class="alert alert-warning">
+            <strong>Item ${error.item_id}:</strong> ${error.message}
+        </div>
+    `).join('');
+
+    Swal.fire({
+        title: 'Errores en la Recepción',
+        html: `
+            <div class="text-start">
+                <p class="mb-3">Se encontraron los siguientes errores:</p>
+                ${errorHtml}
+            </div>
+        `,
+        icon: 'warning',
+        confirmButtonText: 'Revisar',
+        customClass: {
+            confirmButton: 'btn btn-warning'
+        },
+        buttonsStyling: false
+    });
+}
     function exportToPdf() {
         showLoading('Generando PDF...');
 

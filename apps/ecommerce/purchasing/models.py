@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from apps.ecommerce.suppliers.models import Supplier
 from apps.ecommerce.products.models import Product
 from decimal import Decimal
+from django.core.exceptions import ValidationError
 
 class PurchaseOrder(models.Model):
     """
@@ -123,3 +124,35 @@ class PurchaseOrderItem(models.Model):
     @property
     def is_fully_received(self):
         return self.quantity_received >= self.quantity_ordered
+    def clean(self):
+        """Validaciones del modelo"""
+        super().clean()
+
+        if self.quantity_received > self.quantity_ordered:
+            raise ValidationError({
+                'quantity_received': 'La cantidad recibida no puede ser mayor a la ordenada'
+            })
+
+        if self.quantity_received < 0:
+            raise ValidationError({
+                'quantity_received': 'La cantidad recibida no puede ser negativa'
+            })
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def reception_status(self):
+        """Estado de recepción del item"""
+        if self.quantity_received == 0:
+            return 'pending'
+        elif self.quantity_received < self.quantity_ordered:
+            return 'partial'
+        else:
+            return 'complete'
+
+    @property
+    def can_receive_more(self):
+        """Si se pueden recibir más unidades"""
+        return self.quantity_received < self.quantity_ordered

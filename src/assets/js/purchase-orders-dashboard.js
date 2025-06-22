@@ -49,15 +49,15 @@ $(document).ready(function() {
 
     function loadDashboardData() {
         showLoading('Cargando dashboard...');
-        
+
         const dateRange = $('#dateRangePicker')[0]._flatpickr.selectedDates;
         const params = {};
-        
+
         if (dateRange.length === 2) {
             params.start_date = moment(dateRange[0]).format('YYYY-MM-DD');
             params.end_date = moment(dateRange[1]).format('YYYY-MM-DD');
         }
-        
+
         Promise.all([
             $.get(API_URLS.analytics, params),
             $.get(API_URLS.topSuppliers, params),
@@ -83,15 +83,15 @@ $(document).ready(function() {
         // Total órdenes
         $('#totalOrders').text(analytics.total_orders || 0);
         updateChangeIndicator('#totalOrdersChange', analytics.orders_change || 0);
-        
+
         // Monto total
         $('#totalAmount').text(formatCurrency(analytics.total_amount || 0));
         updateChangeIndicator('#totalAmountChange', analytics.amount_change || 0);
-        
+
         // Pendientes
         $('#pendingOrders').text(analytics.pending_orders || 0);
         $('#pendingOrdersAmount').text(formatCurrency(analytics.pending_amount || 0));
-        
+
         // En tránsito
         $('#inTransitOrders').text(analytics.in_transit_orders || 0);
         $('#inTransitOrdersAmount').text(formatCurrency(analytics.in_transit_amount || 0));
@@ -100,7 +100,7 @@ $(document).ready(function() {
     function updateChangeIndicator(selector, change) {
         const element = $(selector);
         const isPositive = change >= 0;
-        
+
         element
             .removeClass('text-success text-danger')
             .addClass(isPositive ? 'text-success' : 'text-danger')
@@ -117,7 +117,7 @@ $(document).ready(function() {
             `);
             return;
         }
-        
+
         const html = suppliers.map((supplier, index) => `
             <div class="supplier-item">
                 <div class="d-flex align-items-center">
@@ -133,7 +133,7 @@ $(document).ready(function() {
                 </div>
             </div>
         `).join('');
-        
+
         $('#topSuppliers').html(html);
     }
 
@@ -147,10 +147,10 @@ $(document).ready(function() {
             `);
             return;
         }
-        
+
         const html = orders.map(order => {
             const statusConfig = getStatusConfig(order.status);
-            
+
             return `
                 <div class="recent-order-item">
                     <div class="d-flex align-items-center">
@@ -166,7 +166,7 @@ $(document).ready(function() {
                 </div>
             `;
         }).join('');
-        
+
         $('#recentOrders').html(html);
     }
 
@@ -180,7 +180,7 @@ $(document).ready(function() {
             `);
             return;
         }
-        
+
         const html = alerts.map(alert => `
             <div class="alert-item ${alert.type}" role="button" data-alert-id="${alert.id}">
                 <div class="d-flex align-items-center">
@@ -193,7 +193,7 @@ $(document).ready(function() {
                 </div>
             </div>
         `).join('');
-        
+
         $('#alertsList').html(html);
     }
 
@@ -207,11 +207,11 @@ $(document).ready(function() {
             `);
             return;
         }
-        
+
         const html = deliveries.map(delivery => {
             const daysUntil = moment(delivery.expected_delivery).diff(moment(), 'days');
             const urgencyClass = daysUntil < 0 ? 'urgent' : daysUntil <= 3 ? 'warning' : 'normal';
-            
+
             return `
                 <div class="delivery-item">
                     <div>
@@ -227,7 +227,7 @@ $(document).ready(function() {
                 </div>
             `;
         }).join('');
-        
+
         $('#upcomingDeliveries').html(html);
     }
 
@@ -238,7 +238,7 @@ $(document).ready(function() {
             ordersChart = new ApexCharts(ordersChartElement, getOrdersChartConfig());
             ordersChart.render();
         }
-        
+
         // Gráfico de distribución por estado
         const statusChartElement = document.querySelector('#statusChart');
         if (statusChartElement) {
@@ -257,20 +257,20 @@ $(document).ready(function() {
                 name: 'Monto (S/.)',
                 data: analytics.monthly_data.map(item => item.total_amount)
             }]);
-            
+
             ordersChart.updateOptions({
                 xaxis: {
-                    categories: analytics.monthly_data.map(item => 
+                    categories: analytics.monthly_data.map(item =>
                         moment(item.month, 'YYYY-MM').format('MMM YYYY')
                     )
                 }
             });
         }
-        
+
         // Actualizar gráfico de estados
         if (statusChart && analytics.status_distribution) {
             const statusData = Object.entries(analytics.status_distribution);
-            
+
             statusChart.updateSeries(statusData.map(([status, count]) => count));
             statusChart.updateOptions({
                 labels: statusData.map(([status, count]) => getStatusConfig(status).text)
@@ -350,7 +350,7 @@ $(document).ready(function() {
             const period = $(this).data('period');
             $('[data-period]').removeClass('active');
             $(this).addClass('active');
-            
+
             currentDateRange = period;
             updateDateRangeFromPeriod(period);
             loadDashboardData();
@@ -376,7 +376,7 @@ $(document).ready(function() {
 
     function updateDateRangeFromPeriod(period) {
         let startDate, endDate = moment();
-        
+
         switch (period) {
             case '6months':
                 startDate = moment().subtract(6, 'months');
@@ -390,14 +390,14 @@ $(document).ready(function() {
             default:
                 startDate = moment().subtract(6, 'months');
         }
-        
+
         $('#dateRangePicker')[0]._flatpickr.setDate([startDate.toDate(), endDate.toDate()]);
     }
 
     function showAlertDetails(alertId) {
         // Cargar detalles de la alerta
         showLoading('Cargando detalles...');
-        
+
         $.get(`${API_URLS.alerts}/${alertId}/`)
             .done(function(alert) {
                 renderAlertDetails(alert);
@@ -418,9 +418,9 @@ $(document).ready(function() {
                     <i class="${getAlertIcon(alert.type)} me-3 fs-4"></i>
                     <h5 class="mb-0">${alert.title}</h5>
                 </div>
-                
+
                 <p class="mb-3">${alert.message}</p>
-                
+
                 <div class="row">
                     <div class="col-md-6">
                         <small class="text-muted d-block">Fecha:</small>
@@ -431,21 +431,21 @@ $(document).ready(function() {
                         <strong>${getAlertTypeName(alert.type)}</strong>
                     </div>
                 </div>
-                
+
                 ${alert.order_number ? `
                     <hr>
                     <div class="d-flex justify-content-between align-items-center">
                         <span>Orden relacionada:</span>
-                        <a href="/purchasing/app/purchase-orders/detail/${alert.order_id}/" class="btn btn-sm btn-outline-primary">
+                        <a href="/app/purchase-orders/detail/${alert.order_id}/" class="btn btn-sm btn-outline-primary">
                             Ver ${alert.order_number}
                         </a>
                     </div>
                 ` : ''}
             </div>
         `;
-        
+
         $('#alertDetailsContent').html(html);
-        
+
         // Configurar botón de resolver
         if (alert.can_resolve) {
             $('#resolveAlertBtn').show().data('alert-id', alert.id);
@@ -456,7 +456,7 @@ $(document).ready(function() {
 
     function showQuickView(orderId) {
         showLoading('Cargando vista rápida...');
-        
+
         $.get(`/purchasing/purchase-orders/${orderId}/`)
             .done(function(order) {
                 renderQuickView(order);
@@ -472,7 +472,7 @@ $(document).ready(function() {
 
     function renderQuickView(order) {
         const statusConfig = getStatusConfig(order.status);
-        
+
         const html = `
             <div class="row">
                 <div class="col-md-6">
@@ -501,9 +501,9 @@ $(document).ready(function() {
                 </div>
             </div>
         `;
-        
+
         $('#quickViewContent').html(html);
-        $('#viewDetailsBtn').attr('href', `/purchasing/app/purchase-orders/detail/${order.id}/`);
+        $('#viewDetailsBtn').attr('href', `/app/purchase-orders/detail/${order.id}/`);
     }
 
     function getStatusConfig(status) {
@@ -563,7 +563,7 @@ $(document).ready(function() {
     // Resolver alerta
     $('#resolveAlertBtn').on('click', function() {
         const alertId = $(this).data('alert-id');
-        
+
         Swal.fire({
             title: '¿Resolver alerta?',
             text: 'Esta acción marcará la alerta como resuelta',
@@ -574,7 +574,7 @@ $(document).ready(function() {
         }).then((result) => {
             if (result.isConfirmed) {
                 showLoading('Resolviendo alerta...');
-                
+
                 $.ajax({
                     url: `${API_URLS.alerts}/${alertId}/resolve/`,
                     method: 'POST',

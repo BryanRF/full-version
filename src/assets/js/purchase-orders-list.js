@@ -632,26 +632,58 @@ const PurchaseOrdersList = {
      * Renderizar formulario de recepción de items
      */
     renderReceiveItemsForm(po) {
-        this.config.currentPO = po;
+    this.config.currentPO = po;
 
-        // Por ahora mostramos un mensaje básico ya que no tenemos los items detallados en la API actual
-        const html = `
-            <div class="alert alert-info">
-                <i class="ri-information-line me-2"></i>
+    // Ahora mostramos un formulario básico funcional
+    const html = `
+        <div class="alert alert-info d-flex align-items-center mb-3">
+            <i class="ri-information-line me-2"></i>
+            <div>
                 <strong>Orden:</strong> ${po.po_number}<br>
                 <strong>Proveedor:</strong> ${po.supplier_name}<br>
-                <strong>Total Items:</strong> ${po.total_items}
+                <strong>Estado:</strong> ${this.getStatusConfig(po.status).text}
             </div>
-            <p class="text-center text-muted">
-                Función de recepción de items en desarrollo.<br>
-                Los detalles específicos de items requieren la implementación completa del endpoint.
-            </p>
-        `;
+        </div>
 
-        if (this.elements.receiveItemsList) {
-            this.elements.receiveItemsList.innerHTML = html;
-        }
-    },
+        <div class="mb-3">
+            <label class="form-label">Acción Rápida de Recepción:</label>
+            <div class="btn-group w-100" role="group">
+                <button type="button" class="btn btn-outline-success" onclick="this.markAsPartiallyReceived(${po.id})">
+                    <i class="ri-truck-line me-1"></i>Recepción Parcial
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="this.markAsCompletelyReceived(${po.id})">
+                    <i class="ri-check-double-line me-1"></i>Recepción Completa
+                </button>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <a href="/app/purchase-orders/detail/${po.id}/" class="btn btn-primary">
+                <i class="ri-external-link-line me-1"></i>Abrir Detalles Completos
+            </a>
+        </div>
+
+        <hr>
+        <small class="text-muted">
+            Para una recepción detallada item por item, utilice la vista de detalles completos.
+        </small>
+    `;
+
+    if (this.elements.receiveItemsList) {
+        this.elements.receiveItemsList.innerHTML = html;
+    }
+},
+
+// Nuevas funciones para acciones rápidas
+markAsPartiallyReceived(poId) {
+    this.changeOrderStatus(poId, 'partially_received');
+    this.hideModal(this.elements.receiveItemsModal);
+},
+
+markAsCompletelyReceived(poId) {
+    this.changeOrderStatus(poId, 'completed');
+    this.hideModal(this.elements.receiveItemsModal);
+},
 
     /**
      * Procesar recepción de items
