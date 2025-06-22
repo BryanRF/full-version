@@ -29,7 +29,7 @@ $(document).ready(function() {
 
     function loadPODetails() {
         showLoading('Cargando detalles...');
-        
+
         $.get(API_URLS.poDetails)
             .done(function(response) {
                 currentPO = response;
@@ -39,7 +39,7 @@ $(document).ready(function() {
             .fail(function(xhr) {
                 console.error('Error loading PO details:', xhr);
                 toastr.error('Error al cargar los detalles de la orden');
-                
+
                 if (xhr.status === 404) {
                     $('#poDetailsContainer').html(`
                         <div class="col-12">
@@ -65,21 +65,21 @@ $(document).ready(function() {
     function renderPODetails(po) {
         // Actualizar encabezado
         $('#poNumber').text(po.po_number);
-        
+
         // Información del proveedor y estado
         const statusConfig = getStatusConfig(po.status);
         $('#supplierName').text(po.supplier?.company_name || 'Sin proveedor');
         $('#supplierContact').text(po.supplier?.contact_person || '');
         $('#statusBadge').removeClass().addClass(`badge bg-label-${statusConfig.color}`).text(statusConfig.text);
         $('#statusIcon').text(statusConfig.icon);
-        
+
         // Progreso
         const progress = po.completion_percentage || 0;
         $('#progressBadge').text(`${progress}%`);
-        
+
         // Monto total
         $('#totalAmount').text(`S/.${parseFloat(po.total_amount || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`);
-        
+
         // Información básica
         $('#orderNumber').text(po.po_number);
         $('#orderDate').text(moment(po.order_date).format('DD/MM/YYYY'));
@@ -90,16 +90,16 @@ $(document).ready(function() {
         $('#notes').text(po.notes || '-');
         $('#createdBy').text(po.created_by?.username || '-');
         $('#createdAt').text(moment(po.created_at).format('DD/MM/YYYY HH:mm'));
-        
+
         // Información del proveedor
         renderSupplierInfo(po.supplier);
-        
+
         // Items de la orden
         renderOrderItems(po.items || []);
-        
+
         // Estadísticas
         renderOrderStats(po);
-        
+
         // Historial si está disponible
         if (po.history) {
             renderOrderHistory(po.history);
@@ -111,12 +111,12 @@ $(document).ready(function() {
             $('#supplierDetails').html('<p class="text-muted">Sin información del proveedor</p>');
             return;
         }
-        
+        const companyName = supplier.company_name || supplier.name || 'Sin nombre';
         const html = `
             <div class="d-flex align-items-center mb-3">
                 <div class="avatar avatar-lg me-3">
                     <span class="avatar-initial rounded bg-label-primary">
-                        ${supplier.company_name.charAt(0).toUpperCase()}
+                        ${companyName.charAt(0).toUpperCase()}
                     </span>
                 </div>
                 <div>
@@ -124,7 +124,7 @@ $(document).ready(function() {
                     <p class="mb-0 text-muted">${supplier.contact_person || ''}</p>
                 </div>
             </div>
-            
+
             <div class="contact-info">
                 ${supplier.email ? `
                     <div class="d-flex align-items-center mb-2">
@@ -132,14 +132,14 @@ $(document).ready(function() {
                         <a href="mailto:${supplier.email}">${supplier.email}</a>
                     </div>
                 ` : ''}
-                
+
                 ${supplier.phone ? `
                     <div class="d-flex align-items-center mb-2">
                         <i class="ri-phone-line me-2 text-muted"></i>
                         <a href="tel:${supplier.phone}">${supplier.phone}</a>
                     </div>
                 ` : ''}
-                
+
                 ${supplier.address ? `
                     <div class="d-flex align-items-center">
                         <i class="ri-map-pin-line me-2 text-muted"></i>
@@ -148,7 +148,7 @@ $(document).ready(function() {
                 ` : ''}
             </div>
         `;
-        
+
         $('#supplierDetails').html(html);
     }
 
@@ -162,7 +162,7 @@ $(document).ready(function() {
             `);
             return;
         }
-        
+
         const html = `
             <div class="table-responsive">
                 <table class="table table-striped">
@@ -182,7 +182,7 @@ $(document).ready(function() {
                             const received = item.quantity_received || 0;
                             const pending = item.quantity_ordered - received;
                             const isComplete = received >= item.quantity_ordered;
-                            
+
                             return `
                                 <tr>
                                     <td>
@@ -206,8 +206,8 @@ $(document).ready(function() {
                                     <td class="text-end">S/.${parseFloat(item.unit_price).toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
                                     <td class="text-end">S/.${parseFloat(item.total_price).toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
                                     <td class="text-center">
-                                        ${isComplete ? 
-                                            '<span class="badge bg-label-success">Completo</span>' : 
+                                        ${isComplete ?
+                                            '<span class="badge bg-label-success">Completo</span>' :
                                             '<span class="badge bg-label-warning">Pendiente</span>'
                                         }
                                     </td>
@@ -226,7 +226,7 @@ $(document).ready(function() {
                 </table>
             </div>
         `;
-        
+
         $('#orderItems').html(html);
     }
 
@@ -236,12 +236,12 @@ $(document).ready(function() {
         const totalReceived = po.items?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0;
         const totalPending = totalOrdered - totalReceived;
         const completionRate = totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
-        
+
         $('#statsItems').text(totalItems);
         $('#statsOrdered').text(totalOrdered);
         $('#statsReceived').text(totalReceived);
         $('#statsPending').text(totalPending);
-        
+
         // Actualizar barra de progreso
         $('#completionProgress').css('width', `${completionRate}%`);
         $('#completionText').text(`${completionRate}% Completado`);
@@ -249,12 +249,12 @@ $(document).ready(function() {
 
     function setupActionButtons(po) {
         const actions = getAvailableActions(po);
-        const html = actions.map(action => 
+        const html = actions.map(action =>
             `<li><a class="dropdown-item ${action.class}" href="#" data-action="${action.action}" ${action.data || ''}>
                 <i class="${action.icon} me-2"></i>${action.text}
             </a></li>`
         ).join('');
-        
+
         $('#actionsList').html(html);
     }
 
@@ -264,7 +264,7 @@ $(document).ready(function() {
             e.preventDefault();
             const action = $(this).data('action');
             const data = $(this).data();
-            
+
             handleAction(action, data);
         });
 
@@ -320,7 +320,7 @@ $(document).ready(function() {
             'completed': 'Completada',
             'cancelled': 'Cancelada'
         };
-        
+
         Swal.fire({
             title: '¿Confirmar cambio de estado?',
             text: `La orden cambiará a estado: ${statusNames[newStatus]}`,
@@ -333,7 +333,7 @@ $(document).ready(function() {
         }).then((result) => {
             if (result.isConfirmed) {
                 showLoading('Cambiando estado...');
-                
+
                 $.ajax({
                     url: API_URLS.poActions,
                     method: 'POST',
@@ -364,17 +364,17 @@ $(document).ready(function() {
             toastr.error('No hay datos de la orden disponibles');
             return;
         }
-        
+
         const pendingItems = currentPO.items.filter(item => {
             const pending = item.quantity_ordered - (item.quantity_received || 0);
             return pending > 0;
         });
-        
+
         if (pendingItems.length === 0) {
             toastr.info('No hay items pendientes de recepción');
             return;
         }
-        
+
         renderReceiveItemsForm(pendingItems);
         $('#receiveItemsModal').modal('show');
     }
@@ -382,7 +382,7 @@ $(document).ready(function() {
     function renderReceiveItemsForm(items) {
         const html = items.map(item => {
             const pending = item.quantity_ordered - (item.quantity_received || 0);
-            
+
             return `
                 <div class="row align-items-center mb-3 border-bottom pb-3" data-item-id="${item.id}">
                     <div class="col-md-5">
@@ -394,7 +394,7 @@ $(document).ready(function() {
                         <strong>${pending}</strong>
                     </div>
                     <div class="col-md-3">
-                        <input type="number" class="form-control receive-qty" 
+                        <input type="number" class="form-control receive-qty"
                                min="0" max="${pending}" value="${pending}"
                                placeholder="Cantidad">
                     </div>
@@ -407,18 +407,18 @@ $(document).ready(function() {
                 </div>
             `;
         }).join('');
-        
+
         $('#receiveItemsList').html(html);
     }
 
     function processItemsReception() {
         const items = [];
-        
+
         $('.receive-check:checked').each(function() {
             const row = $(this).closest('[data-item-id]');
             const itemId = row.data('item-id');
             const quantity = row.find('.receive-qty').val();
-            
+
             if (quantity && quantity > 0) {
                 items.push({
                     item_id: itemId,
@@ -426,14 +426,14 @@ $(document).ready(function() {
                 });
             }
         });
-        
+
         if (items.length === 0) {
             toastr.warning('Seleccione al menos un item para recibir');
             return;
         }
-        
+
         showLoading('Procesando recepción...');
-        
+
         $.ajax({
             url: API_URLS.receiveItems,
             method: 'POST',
@@ -490,7 +490,7 @@ $(document).ready(function() {
         }).then((result) => {
             if (result.isConfirmed) {
                 showLoading('Duplicando orden...');
-                
+
                 $.ajax({
                     url: API_URLS.poActions,
                     method: 'POST',
@@ -518,7 +518,7 @@ $(document).ready(function() {
 
     function sendReminder() {
         showLoading('Enviando recordatorio...');
-        
+
         $.ajax({
             url: API_URLS.poActions,
             method: 'POST',
@@ -541,19 +541,19 @@ $(document).ready(function() {
 
     function exportToPdf() {
         showLoading('Generando PDF...');
-        
+
         // Crear un iframe temporal para la descarga
         const iframe = document.createElement('iframe');
         iframe.style.display = 'none';
         iframe.src = API_URLS.exportPdf;
         document.body.appendChild(iframe);
-        
+
         // Remover el iframe después de un tiempo
         setTimeout(() => {
             document.body.removeChild(iframe);
             hideLoading();
         }, 3000);
-        
+
         toastr.info('Descarga iniciada...');
     }
 
@@ -580,7 +580,7 @@ $(document).ready(function() {
 
     function getAvailableActions(po) {
         const actions = [];
-        
+
         // Cambios de estado disponibles
         if (po.status === 'draft') {
             actions.push({
@@ -591,7 +591,7 @@ $(document).ready(function() {
                 data: 'data-status="sent"'
             });
         }
-        
+
         if (po.status === 'sent') {
             actions.push({
                 action: 'change_status',
@@ -601,7 +601,7 @@ $(document).ready(function() {
                 data: 'data-status="confirmed"'
             });
         }
-        
+
         if (po.status === 'confirmed' || po.status === 'partially_received') {
             actions.push({
                 action: 'receive_items',
@@ -610,7 +610,7 @@ $(document).ready(function() {
                 class: 'text-warning'
             });
         }
-        
+
         // Acciones generales
         if (po.status !== 'cancelled' && po.status !== 'completed') {
             actions.push({
@@ -620,14 +620,14 @@ $(document).ready(function() {
                 class: ''
             });
         }
-        
+
         actions.push({
             action: 'duplicate_order',
             text: 'Duplicar Orden',
             icon: 'ri-file-copy-line',
             class: ''
         });
-        
+
         // Cancelar (solo si no está completada o cancelada)
         if (!['completed', 'cancelled'].includes(po.status)) {
             actions.push({
@@ -637,7 +637,7 @@ $(document).ready(function() {
                 class: 'text-danger'
             });
         }
-        
+
         return actions;
     }
 
@@ -646,7 +646,7 @@ $(document).ready(function() {
             $('#orderHistory').html('<p class="text-muted">No hay historial disponible</p>');
             return;
         }
-        
+
         const html = history.map(entry => `
             <div class="timeline-item">
                 <div class="timeline-marker bg-primary"></div>
@@ -659,7 +659,7 @@ $(document).ready(function() {
                 </div>
             </div>
         `).join('');
-        
+
         $('#orderHistory').html(`<div class="timeline">${html}</div>`);
     }
 

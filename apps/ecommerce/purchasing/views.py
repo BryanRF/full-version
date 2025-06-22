@@ -39,30 +39,30 @@ logger = logging.getLogger(__name__)
 class PurchaseOrderListCreateAPIView(generics.ListCreateAPIView):
     """API para listar y crear órdenes de compra"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return PurchaseOrderCreateSerializer
         return PurchaseOrderListSerializer
-    
+
     def get_queryset(self):
         queryset = PurchaseOrder.objects.all().select_related(
             'supplier', 'created_by'
         ).prefetch_related('items')
-        
+
         # Filtros
         status = self.request.query_params.get('status')
         if status:
             queryset = queryset.filter(status=status)
-        
+
         supplier_id = self.request.query_params.get('supplier')
         if supplier_id:
             queryset = queryset.filter(supplier_id=supplier_id)
-        
+
         created_by = self.request.query_params.get('created_by')
         if created_by:
             queryset = queryset.filter(created_by_id=created_by)
-        
+
         # Filtro por fechas
         date_from = self.request.query_params.get('date_from')
         date_to = self.request.query_params.get('date_to')
@@ -70,53 +70,64 @@ class PurchaseOrderListCreateAPIView(generics.ListCreateAPIView):
             queryset = queryset.filter(order_date__gte=date_from)
         if date_to:
             queryset = queryset.filter(order_date__lte=date_to)
-        
+
         return queryset.order_by('-created_at')
-    
+
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
     """ViewSet completo para operaciones CRUD de órdenes de compra"""
     queryset = PurchaseOrder.objects.all().select_related('supplier', 'created_by').prefetch_related('items')
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
-    
+    def create(self, request, *args, **kwargs):
+        """Override create para devolver respuesta correcta"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Crear la orden
+        purchase_order = serializer.save()
+
+        # ✅ Usar serializer completo para respuesta
+        response_serializer = PurchaseOrderSerializer(purchase_order)
+
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return PurchaseOrderCreateSerializer
         elif self.action == 'list':
             return PurchaseOrderListSerializer
         return PurchaseOrderSerializer
-    
+
     @action(detail=True, methods=['post'])
     def receive_items(self, request, pk=None):
         """Acción para recibir items de la orden"""
         purchase_order = self.get_object()
-        
+
         if purchase_order.status not in ['sent', 'partial']:
             return Response(
                 {'error': 'No se pueden recibir items en el estado actual'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         serializer = ReceiveItemsSerializer(data=request.data)
         if serializer.is_valid():
             try:
                 service = PurchaseOrderManagementService()
                 service.receive_items(purchase_order, serializer.validated_data['received_items'])
-                
+
                 # Actualizar serializer
                 updated_po = PurchaseOrder.objects.get(pk=pk)
                 response_serializer = PurchaseOrderSerializer(updated_po)
-                
+
                 return Response(response_serializer.data)
-                
+
             except Exception as e:
                 return Response(
                     {'error': str(e)},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
 class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
     """ViewSet para items de órdenes de compra"""
     queryset = PurchaseOrderItem.objects.all().select_related('purchase_order', 'product')
@@ -126,66 +137,66 @@ class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
 class QuickPurchaseOrderAPIView(APIView):
     """API para crear órdenes de compra rápidas"""
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         try:
             data = request.data
             service = PurchaseOrderManagementService()
-            
+
             # Validaciones básicas
             if not data.get('supplier_id'):
                 return Response(
-                    {'error': 'Proveedor es requerido'}, 
+                    {'error': 'Proveedor es requerido'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             if not data.get('items'):
                 return Response(
-                    {'error': 'Items son requeridos'}, 
+                    {'error': 'Items son requeridos'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             # Crear orden
             purchase_order = service.create_purchase_order(data, request.user)
-            
+
             serializer = PurchaseOrderSerializer(purchase_order)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
+
         except Exception as e:
             logger.error(f"Error creating quick purchase order: {str(e)}")
             return Response(
-                {'error': str(e)}, 
+                {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 class SupplierPurchaseHistoryAPIView(generics.RetrieveAPIView):
     """API para obtener historial de compras de un proveedor"""
     permission_classes = [IsAuthenticated]
-    
+
     def retrieve(self, request, supplier_id):
         try:
             supplier = get_object_or_404(Supplier, id=supplier_id)
         except Supplier.DoesNotExist:
             return Response(
-                {'error': 'Proveedor no encontrado'}, 
+                {'error': 'Proveedor no encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         # Obtener órdenes de compra
         purchase_orders = PurchaseOrder.objects.filter(
             supplier=supplier
         ).order_by('-created_at')
-        
+
         # Estadísticas
         total_orders = purchase_orders.count()
         total_spent = purchase_orders.aggregate(
             total=Sum('total_amount')
         )['total'] or 0
-        
+
         completed_orders = purchase_orders.filter(status='completed').count()
-        
+
         # Serializar datos
         serializer = PurchaseOrderListSerializer(purchase_orders[:20], many=True)
-        
+
         return Response({
             'supplier': {
                 'id': supplier.id,
@@ -205,7 +216,7 @@ class SupplierPurchaseHistoryAPIView(generics.RetrieveAPIView):
 # Vistas de plantillas
 class PurchaseOrderTemplateView(TemplateView):
     """Vista base para plantillas de órdenes de compra"""
-    
+
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         return context
@@ -224,18 +235,18 @@ class PurchaseOrderCreateView(PurchaseOrderTemplateView):
 class PurchaseOrderDetailView(PurchaseOrderTemplateView):
     """Vista para detalles de orden de compra"""
     template_name = "app_purchase_orders_detail.html"
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         po_id = kwargs.get('po_id')
-        
+
         if po_id:
             try:
                 purchase_order = PurchaseOrder.objects.select_related('supplier').get(id=po_id)
                 context['purchase_order'] = purchase_order
             except PurchaseOrder.DoesNotExist:
                 context['error'] = 'Orden de compra no encontrada'
-        
+
         return context
 
 
@@ -246,11 +257,11 @@ class PurchaseOrderDashboardView(PurchaseOrderTemplateView):
 class PurchasingSuppliersAPIView(generics.ListAPIView):
     """API para listar suppliers en purchasing con paginación y búsqueda"""
     serializer_class = PurchasingSupplierSerializer
-    
+
     def get_queryset(self):
         # Remover prefetch_related por ahora para evitar el error
         queryset = Supplier.objects.filter(is_active=True).select_related()
-        
+
         # Filtro por búsqueda
         search = self.request.query_params.get('search')
         if search:
@@ -260,40 +271,40 @@ class PurchasingSuppliersAPIView(generics.ListAPIView):
                 Q(email__icontains=search) |
                 Q(tax_id__icontains=search)
             )
-        
+
         # Filtro por categoría
         category = self.request.query_params.get('category')
         if category:
             queryset = queryset.filter(category=category)
-        
+
         # Filtro por estado preferido
         preferred = self.request.query_params.get('preferred')
         if preferred and preferred.lower() == 'true':
             queryset = queryset.filter(is_preferred=True)
-        
+
         # Ordenamiento
         ordering = self.request.query_params.get('ordering', 'company_name')
         if ordering in ['company_name', '-company_name', 'rating', '-rating', 'created_at', '-created_at']:
             queryset = queryset.order_by(ordering)
-        
+
         return queryset
-    
+
     def list(self, request, *args, **kwargs):
         """Override para implementar paginación manual compatible con Select2"""
         page = int(request.query_params.get('page', 1))
         page_size = 20  # Tamaño de página para Select2
-        
+
         queryset = self.get_queryset()
         total_count = queryset.count()
-        
+
         # Calcular offset
         offset = (page - 1) * page_size
         limit = offset + page_size
-        
+
         # Obtener datos paginados
         paginated_queryset = queryset[offset:limit]
         serializer = self.get_serializer(paginated_queryset, many=True)
-        
+
         # Formato compatible con Select2
         return Response({
             'results': serializer.data,
@@ -307,25 +318,25 @@ class PurchasingSupplierDetailAPIView(generics.RetrieveAPIView):
     """API para obtener detalles de un supplier específico"""
     queryset = Supplier.objects.all()
     serializer_class = PurchasingSupplierSerializer
-    
+
     def retrieve(self, request, *args, **kwargs):
         supplier = self.get_object()
         serializer = self.get_serializer(supplier)
-        
+
         # Información adicional para purchasing
         additional_data = {
             'supplier': serializer.data,
             'recent_orders': self.get_recent_orders(supplier),
             'performance_stats': self.get_performance_stats(supplier)
         }
-        
+
         return Response(additional_data)
-    
+
     def get_recent_orders(self, supplier):
         """Obtener órdenes recientes del proveedor"""
         recent_orders = supplier.purchaseorder_set.order_by('-order_date')[:5]
         orders_data = []
-        
+
         for order in recent_orders:
             orders_data.append({
                 'id': order.id,
@@ -334,14 +345,14 @@ class PurchasingSupplierDetailAPIView(generics.RetrieveAPIView):
                 'status': order.status,
                 'total_amount': float(order.total_amount)
             })
-        
+
         return orders_data
-    
+
     def get_performance_stats(self, supplier):
         """Calcular estadísticas de rendimiento"""
         orders = supplier.purchaseorder_set.all()
         total_orders = orders.count()
-        
+
         if total_orders == 0:
             return {
                 'total_orders': 0,
@@ -349,16 +360,16 @@ class PurchasingSupplierDetailAPIView(generics.RetrieveAPIView):
                 'average_order_value': 0,
                 'total_spent': 0
             }
-        
+
         # Calcular métricas
         completed_orders = orders.filter(status='completed')
         on_time_orders = completed_orders.filter(
             delivery_date__lte=models.F('expected_delivery')
         ).count()
-        
+
         total_spent = orders.aggregate(total=Sum('total_amount'))['total'] or 0
         avg_order_value = orders.aggregate(avg=Avg('total_amount'))['avg'] or 0
-        
+
         return {
             'total_orders': total_orders,
             'on_time_delivery_rate': round((on_time_orders / completed_orders.count()) * 100, 2) if completed_orders.count() > 0 else 0,
@@ -368,34 +379,34 @@ class PurchasingSupplierDetailAPIView(generics.RetrieveAPIView):
 
 class PurchasingProductSerializer(serializers.ModelSerializer):
     """Serializer específico para productos en purchasing"""
-    
-    # Campos principales  
+
+    # Campos principales
     name = serializers.CharField(read_only=True)
     code = serializers.CharField(read_only=True)
     description = serializers.CharField(read_only=True)
-    
+
     # Información de stock
     current_stock = serializers.IntegerField(source='stock_current', read_only=True)
     minimum_stock = serializers.IntegerField(source='stock_minimum', read_only=True)
     stock_status = serializers.CharField(read_only=True)
-    
+
     # Información de precios
     price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     last_purchase_price = serializers.SerializerMethodField()
     average_purchase_price = serializers.SerializerMethodField()
-    
+
     # Información de categoría
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_id = serializers.IntegerField(source='category.id', read_only=True)
-    
+
     # Información adicional
     unit_of_measure = serializers.CharField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
-    
+
     # Estadísticas de compras
     total_orders = serializers.SerializerMethodField()
     last_order_date = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Product
         fields = [
@@ -404,12 +415,12 @@ class PurchasingProductSerializer(serializers.ModelSerializer):
             'category_name', 'category_id', 'unit_of_measure', 'is_active',
             'total_orders', 'last_order_date'
         ]
-    
+
     def get_last_purchase_price(self, obj):
         """Último precio de compra"""
         last_item = obj.purchaseorderitem_set.order_by('-created_at').first()
         return float(last_item.unit_price) if last_item else 0.0
-    
+
     def get_average_purchase_price(self, obj):
         """Precio promedio de compra"""
         from django.db.models import Avg
@@ -417,11 +428,11 @@ class PurchasingProductSerializer(serializers.ModelSerializer):
             avg=Avg('unit_price')
         )['avg']
         return float(avg_price) if avg_price else 0.0
-    
+
     def get_total_orders(self, obj):
         """Total de órdenes donde aparece este producto"""
         return obj.purchaseorderitem_set.values('purchase_order').distinct().count()
-    
+
     def get_last_order_date(self, obj):
         """Fecha de la última orden"""
         last_item = obj.purchaseorderitem_set.order_by('-created_at').first()
@@ -489,26 +500,26 @@ class PurchasingProductDetailAPIView(generics.RetrieveAPIView):
     """API para obtener detalles de un producto específico"""
     queryset = Product.objects.all()
     serializer_class = PurchasingProductSerializer
-    
+
     def retrieve(self, request, *args, **kwargs):
         product = self.get_object()
         serializer = self.get_serializer(product)
-        
+
         # Información adicional para purchasing
         additional_data = {
             'product': serializer.data,
             'recent_purchases': self.get_recent_purchases(product),
             'supplier_prices': self.get_supplier_prices(product)
         }
-        
+
         return Response(additional_data)
-    
+
     def get_recent_purchases(self, product):
         """Obtener compras recientes del producto"""
         recent_items = product.purchaseorderitem_set.select_related(
             'purchase_order__supplier'
         ).order_by('-created_at')[:5]
-        
+
         purchases_data = []
         for item in recent_items:
             purchases_data.append({
@@ -519,9 +530,9 @@ class PurchasingProductDetailAPIView(generics.RetrieveAPIView):
                 'unit_price': float(item.unit_price),
                 'total': float(item.line_total)
             })
-        
+
         return purchases_data
-    
+
     def get_supplier_prices(self, product):
         """Obtener precios por proveedor"""
         supplier_prices = product.purchaseorderitem_set.values(
@@ -532,7 +543,7 @@ class PurchasingProductDetailAPIView(generics.RetrieveAPIView):
             last_price=models.Max('unit_price'),
             last_order=models.Max('purchase_order__order_date')
         ).order_by('-last_order')
-        
+
         prices_data = []
         for sp in supplier_prices:
             prices_data.append({
@@ -542,5 +553,5 @@ class PurchasingProductDetailAPIView(generics.RetrieveAPIView):
                 'last_price': float(sp['last_price']),
                 'last_order_date': sp['last_order']
             })
-        
+
         return prices_data

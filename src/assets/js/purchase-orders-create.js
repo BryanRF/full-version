@@ -193,7 +193,7 @@ $(document).ready(function() {
         $('#supplierPhone').text(supplier.phone || '-');
         $('#supplierPaymentTerms').text(supplier.payment_terms || '-');
         $('#supplierInfo').removeClass('d-none');
-        
+
         // Limpiar select de productos para que se actualice con el nuevo proveedor
         $('#productSelect').val(null).trigger('change');
     }
@@ -208,12 +208,12 @@ $(document).ready(function() {
         $('#productPrice').text(product.last_purchase_price ? `s/. ${product.last_purchase_price}` : '-');
         $('#productUnit').text(product.unit_of_measure || '-');
         $('#productInfo').removeClass('d-none');
-        
+
         // Establecer precio sugerido
         if (product.last_purchase_price) {
             $('#unitPrice').val(product.last_purchase_price);
         }
-        
+
         calculateProductSubtotal();
     }
 
@@ -248,7 +248,7 @@ $(document).ready(function() {
 
         // Verificar si el producto ya existe
         const existingIndex = selectedProducts.findIndex(p => p.product_id === productData.product.id);
-        
+
         if (existingIndex >= 0) {
             // Actualizar producto existente
             selectedProducts[existingIndex] = {
@@ -300,7 +300,7 @@ $(document).ready(function() {
 
     function editProduct(index) {
         const product = selectedProducts[index];
-        
+
         // Cargar datos en el modal
         $('#productSelect').append(new Option(
             `${product.product_code} - ${product.product_name}`,
@@ -308,21 +308,21 @@ $(document).ready(function() {
             true,
             true
         )).trigger('change');
-        
+
         $('#quantity').val(product.quantity);
         $('#unitPrice').val(product.unit_price);
         $('#productNotes').val(product.notes);
-        
+
         calculateProductSubtotal();
         $('#addProductModal').modal('show');
-        
+
         // Marcar como edición para actualizar en lugar de agregar
         $('#addProductModal').data('editing-index', index);
     }
 
     function updateProductsTable() {
         const tbody = $('#productsTable tbody');
-        
+
         if (selectedProducts.length === 0) {
             tbody.html(`
                 <tr id="emptyProductsRow">
@@ -421,7 +421,7 @@ $(document).ready(function() {
 
         const formData = getFormData();
         const previewHtml = generatePreviewHTML(formData);
-        
+
         $('#previewContent').html(previewHtml);
         $('#previewModal').modal('show');
     }
@@ -449,7 +449,7 @@ $(document).ready(function() {
                             <p class="mb-0">Prioridad: ${data.priority}</p>
                         </div>
                     </div>
-                    
+
                     <div class="table-responsive mb-4">
                         <table class="table table-bordered">
                             <thead class="table-light">
@@ -472,7 +472,7 @@ $(document).ready(function() {
                             </tbody>
                         </table>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6 ms-auto">
                             <table class="table table-sm">
@@ -538,9 +538,9 @@ $(document).ready(function() {
 
         const formData = getFormData();
         formData.status = isDraft ? 'draft' : 'sent';
-        
+
         showLoading(isDraft ? 'Guardando borrador...' : 'Creando orden de compra...');
-        
+
         // ✅ Enviar como JSON en lugar de form data
         $.ajax({
             url: API_URLS.createPO,
@@ -551,7 +551,17 @@ $(document).ready(function() {
             },
             data: JSON.stringify(formData),
             success: function(response) {
+console.log('✅ Respuesta completa:', response); // ✅ Debug log
 
+                // ✅ Manejar diferentes formatos de respuesta
+                let orderId = null;
+                if (response.id) {
+                    orderId = response.id;
+                } else if (response.data && response.data.id) {
+                    orderId = response.data.id;
+                } else if (response.purchase_order && response.purchase_order.id) {
+                    orderId = response.purchase_order.id;
+                }
              if (orderId) {
                     toastr.success(isDraft ? 'Borrador guardado correctamente' : 'Orden de compra creada correctamente');
                     setTimeout(() => {
@@ -570,13 +580,13 @@ $(document).ready(function() {
             error: function(xhr) {
                 console.error('Error creating purchase order:', xhr);
                 let errorMessage = 'Error al crear la orden de compra';
-                
+
                 if (xhr.responseJSON && xhr.responseJSON.error) {
                     errorMessage = xhr.responseJSON.error;
                 } else if (xhr.responseJSON && xhr.responseJSON.errors) {
                     errorMessage = Object.values(xhr.responseJSON.errors).flat().join(', ');
                 }
-                
+
                 toastr.error(errorMessage);
             },
             complete: function() {
