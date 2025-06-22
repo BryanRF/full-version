@@ -103,7 +103,8 @@ function displayRoleStats(stats) {
 
     Object.keys(stats).forEach(roleCode => {
         const role = stats[roleCode];
-        const activationRate = role.total_users > 0 ? ((role.active_users / role.total_users) * 100).toFixed(1) : 0;
+        const activationRate = role.total_users > 0 ?
+            ((role.active_users / role.total_users) * 100).toFixed(1) : 0;
 
         html += `
             <div class="col-md-4 mb-3">
@@ -240,54 +241,59 @@ function updateSaveButton() {
     });
 
     // Calcular cambios
-    const added = currentPermissions.filter(id => !initialPermissions.includes(id));
-    const removed = initialPermissions.filter(id => !currentPermissions.includes(id));
+    const added = currentPermissions.filter(p => !initialPermissions.includes(p));
+    const removed = initialPermissions.filter(p => !currentPermissions.includes(p));
 
-    const hasChanges = added.length > 0 || removed.length > 0;
-
-    const saveBtn = $('#saveRolePermissionsBtn');
-    if (hasChanges) {
-        saveBtn.removeClass('btn-outline-success').addClass('btn-success');
-        saveBtn.html(`<i class="ri-save-line me-1"></i>Guardar Cambios (${added.length + removed.length})`);
-    } else {
-        saveBtn.removeClass('btn-success').addClass('btn-outline-success');
-        saveBtn.html('<i class="ri-save-line me-1"></i>Guardar Cambios');
-    }
-
-    // Guardar cambios para usar en confirmación
     pendingChanges = { added, removed };
+
+    // Habilitar/deshabilitar botón
+    const hasChanges = added.length > 0 || removed.length > 0;
+    $('#saveRolePermissionsBtn').prop('disabled', !hasChanges);
+
+    // Actualizar badge del botón
+    if (hasChanges) {
+        const totalChanges = added.length + removed.length;
+        $('#saveRolePermissionsBtn').html(`
+            <i class="ri-save-line me-1"></i>
+            Guardar Cambios <span class="badge bg-warning ms-1">${totalChanges}</span>
+        `);
+    } else {
+        $('#saveRolePermissionsBtn').html(`
+            <i class="ri-save-line me-1"></i>
+            Guardar Cambios
+        `);
+    }
 }
 
 function updateChangesSummary() {
-    if (pendingChanges.added && pendingChanges.removed &&
-        (pendingChanges.added.length > 0 || pendingChanges.removed.length > 0)) {
+    if (!pendingChanges.added || !pendingChanges.removed) return;
 
-        let html = '<div class="row">';
+    const totalChanges = pendingChanges.added.length + pendingChanges.removed.length;
+
+    if (totalChanges > 0) {
+        let summaryHtml = '<div class="list-group">';
 
         if (pendingChanges.added.length > 0) {
-            html += '<div class="col-md-6"><h6 class="text-success">Permisos a Agregar:</h6><ul class="list-unstyled">';
-            pendingChanges.added.forEach(permissionId => {
-                const checkbox = $(`#perm_${permissionId}`);
-                const name = checkbox.data('permission-name');
-                html += `<li><i class="ri-add-line text-success me-1"></i>${name}</li>`;
-            });
-            html += '</ul></div>';
+            summaryHtml += `
+                <div class="list-group-item list-group-item-success">
+                    <i class="ri-add-circle-line me-2"></i>
+                    <strong>${pendingChanges.added.length}</strong> permisos serán agregados
+                </div>
+            `;
         }
 
         if (pendingChanges.removed.length > 0) {
-            html += '<div class="col-md-6"><h6 class="text-danger">Permisos a Remover:</h6><ul class="list-unstyled">';
-            pendingChanges.removed.forEach(permissionId => {
-                const permission = currentRolePermissions.find(p => p.id === permissionId);
-                if (permission) {
-                    html += `<li><i class="ri-subtract-line text-danger me-1"></i>${permission.name}</li>`;
-                }
-            });
-            html += '</ul></div>';
+            summaryHtml += `
+                <div class="list-group-item list-group-item-danger">
+                    <i class="ri-close-circle-line me-2"></i>
+                    <strong>${pendingChanges.removed.length}</strong> permisos serán removidos
+                </div>
+            `;
         }
 
-        html += '</div>';
+        summaryHtml += '</div>';
 
-        $('#changesSummary').html(html);
+        $('#changesSummary').html(summaryHtml);
         $('#changesCard').removeClass('d-none');
     } else {
         $('#changesCard').addClass('d-none');
@@ -364,7 +370,7 @@ function confirmSaveChanges() {
 
     $.ajax({
         url: '/auth/role-permissions/update/',
-        method: 'OPTIONS', // Cambiado a POST
+        method: 'POST', // CORREGIDO: Cambiado de OPTIONS a POST
         headers: {
             'X-CSRFToken': csrftoken,
             'Content-Type': 'application/json'
@@ -374,7 +380,7 @@ function confirmSaveChanges() {
             console.log('Respuesta exitosa:', response); // Para debug
 
             if (response.success) {
-                toastr['success']('', response.message);
+                toastr['success']('', response.message || 'Permisos actualizados correctamente');
 
                 // Actualizar estado inicial
                 initialPermissions = currentPermissions.slice();
@@ -421,20 +427,23 @@ function confirmSaveChanges() {
 
 function viewRoleUsers() {
     if (!currentRole) {
-        toastr['error']('', 'Selecciona un rol primero');
+        toastr['error']('', 'Por favor seleccione un rol primero');
         return;
     }
 
-    $('#roleUsersModal').modal('show');
+    // Mostrar loading en el modal
     $('#roleUsersContent').html(`
-        <div class="text-center">
-            <div class="spinner-border" role="status"></div>
-            <p class="mt-2">Cargando usuarios...</p>
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
         </div>
     `);
 
+    $('#roleUsersModal').modal('show');
+
     $.ajax({
-        url: `/auth/role-permissions/users/${currentRole}/`,
+        url: `/auth/role-permissions/${currentRole}/users/`,
         method: 'GET',
         headers: {
             'X-CSRFToken': csrftoken
@@ -444,9 +453,9 @@ function viewRoleUsers() {
                 displayRoleUsers(response.data);
             } else {
                 $('#roleUsersContent').html(`
-                    <div class="text-center text-danger">
-                        <i class="ri-error-warning-line ri-24px mb-2"></i>
-                        <p>Error al cargar usuarios</p>
+                    <div class="alert alert-danger">
+                        <i class="ri-error-warning-line me-2"></i>
+                        ${response.error || 'Error al cargar usuarios'}
                     </div>
                 `);
             }
@@ -454,30 +463,27 @@ function viewRoleUsers() {
         error: function(xhr) {
             console.error('Error loading role users:', xhr);
             $('#roleUsersContent').html(`
-                <div class="text-center text-danger">
-                    <i class="ri-error-warning-line ri-24px mb-2"></i>
-                    <p>Error al cargar usuarios</p>
+                <div class="alert alert-danger">
+                    <i class="ri-error-warning-line me-2"></i>
+                    Error al cargar los usuarios del rol
                 </div>
             `);
         }
     });
 }
 
-function displayRoleUsers(data) {
-    if (data.users.length === 0) {
+function displayRoleUsers(users) {
+    if (users.length === 0) {
         $('#roleUsersContent').html(`
-            <div class="text-center text-muted py-4">
-                <i class="ri-user-line ri-24px mb-2"></i>
-                <p>No hay usuarios con el rol ${data.role_display}</p>
+            <div class="alert alert-info">
+                <i class="ri-information-line me-2"></i>
+                No hay usuarios asignados a este rol
             </div>
         `);
         return;
     }
 
     let html = `
-        <div class="alert alert-info">
-            <strong>${data.role_display}</strong> - ${data.count} usuarios encontrados
-        </div>
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
@@ -485,20 +491,20 @@ function displayRoleUsers(data) {
                         <th>Usuario</th>
                         <th>Email</th>
                         <th>Estado</th>
-                        <th>Fecha Registro</th>
+                        <th>Último acceso</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
-    data.users.forEach(user => {
-        const fullName = user.first_name && user.last_name ?
-            `${user.first_name} ${user.last_name}` : user.username;
+    users.forEach(user => {
+        const statusBadge = user.is_active ?
+            '<span class="badge bg-success">Activo</span>' :
+            '<span class="badge bg-secondary">Inactivo</span>';
 
-        const statusClass = user.profile__status === 'ACTIVO' ? 'success' :
-                           user.profile__status === 'PENDIENTE' ? 'warning' : 'danger';
-
-        const date = new Date(user.date_joined).toLocaleDateString('es-ES');
+        const lastLogin = user.last_login ?
+            new Date(user.last_login).toLocaleDateString() :
+            'Nunca';
 
         html += `
             <tr>
@@ -506,66 +512,30 @@ function displayRoleUsers(data) {
                     <div class="d-flex align-items-center">
                         <div class="avatar avatar-sm me-2">
                             <span class="avatar-initial rounded-circle bg-label-primary">
-                                ${fullName.substring(0, 2).toUpperCase()}
+                                ${user.username.substring(0, 2).toUpperCase()}
                             </span>
                         </div>
                         <div>
-                            <h6 class="mb-0">${fullName}</h6>
-                            <small class="text-muted">@${user.username}</small>
+                            <strong>${user.username}</strong>
+                            <br><small class="text-muted">${user.full_name || ''}</small>
                         </div>
                     </div>
                 </td>
                 <td>${user.email}</td>
-                <td>
-                    <span class="badge bg-${statusClass}">${user.profile__status || 'PENDIENTE'}</span>
-                </td>
-                <td>${date}</td>
+                <td>${statusBadge}</td>
+                <td>${lastLogin}</td>
             </tr>
         `;
     });
 
-    html += '</tbody></table></div>';
+    html += `
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3">
+            <small class="text-muted">Total: ${users.length} usuario(s)</small>
+        </div>
+    `;
+
     $('#roleUsersContent').html(html);
-}
-
-function syncAllUserRoles() {
-    Swal.fire({
-        title: '¿Sincronizar usuarios?',
-        text: 'Esto actualizará los grupos de todos los usuarios según sus roles actuales',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, sincronizar',
-        cancelButtonText: 'Cancelar',
-        customClass: {
-            confirmButton: 'btn btn-primary me-2',
-            cancelButton: 'btn btn-secondary'
-        },
-        buttonsStyling: false
-    }).then((result) => {
-        if (result.isConfirmed) {
-            performUserRoleSync();
-        }
-    });
-}
-
-function performUserRoleSync() {
-    $.ajax({
-        url: '/auth/role-permissions/sync/',
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrftoken
-        },
-        success: function(response) {
-            if (response.success) {
-                toastr['success']('', response.message);
-                loadRoleStats();
-            } else {
-                toastr['error']('', response.error);
-            }
-        },
-        error: function(xhr) {
-            console.error('Error syncing user roles:', xhr);
-            toastr['error']('', 'Error al sincronizar usuarios');
-        }
-    });
 }
