@@ -692,7 +692,7 @@ const PurchaseOrdersList = {
                 },
                 body: JSON.stringify({
                     action: 'change_status',
-                    status: newStatus
+                    new_status: newStatus
                 })
             });
 
