@@ -335,62 +335,78 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     # ACCIÓN DE RECEPCIÓN DE ITEMS
     # ================================
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='receive-items')
+    @transaction.atomic
     def receive_items(self, request, pk=None):
-        """Acción para recibir items de la orden"""
-        purchase_order = self.get_object()
+        """
+        Endpoint para recibir items de una orden de compra
 
-        if purchase_order.status not in ['confirmed', 'partially_received']:
-            return Response(
-                {'error': 'No se pueden recibir items en el estado actual'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        Payload esperado:
+        {
+            "items": [
+                {
+                    "item_id": 1,
+                    "quantity_received": 10,
+                    "reception_notes": "Llegó en buen estado"
+                }
+            ],
+            "update_inventory": true,
+            "general_notes": "Recepción completa sin novedades"
+        }
+        """
+        try:
+            purchase_order = self.get_object()
 
-        serializer = ReceiveItemsSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                # Usar el servicio de recepción
-                reception_summary = PurchaseOrderReceptionService.receive_items(
-                    purchase_order,
-                    serializer.validated_data,
-                    request.user
-                )
-
-                # Obtener orden actualizada
-                updated_po = PurchaseOrder.objects.select_related('supplier', 'created_by').prefetch_related(
-                    'items__product'
-                ).get(pk=pk)
-
-                # Serializar orden completa
-                po_serializer = PurchaseOrderSerializer(updated_po)
-
-                return Response({
-                    'purchase_order': po_serializer.data,
-                    'reception_summary': reception_summary,
-                    'message': 'Items recibidos correctamente'
-                })
-
-            except ValidationError as e:
-                if hasattr(e, 'message_dict'):
-                    error_detail = e.message_dict
-                elif hasattr(e, 'detail'):
-                    error_detail = e.detail
-                else:
-                    error_detail = str(e)
-
+            # Validar estado de la orden
+            if purchase_order.status not in ['sent', 'confirmed', 'partially_received']:
                 return Response(
-                    {'error': 'Error en la recepción', 'details': error_detail},
+                    {'error': f'No se puede recibir items en estado {purchase_order.get_status_display()}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            except Exception as e:
-                logger.error(f"Error in receive_items: {str(e)}")
+
+            # Obtener datos del request
+            items_data = request.data.get('items', [])
+            update_inventory = request.data.get('update_inventory', True)
+            general_notes = request.data.get('general_notes', '')
+
+            if not items_data:
                 return Response(
-                    {'error': 'Error interno del servidor'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {'error': 'Debe especificar al menos un item para recibir'},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Usar el servicio de recepción
+            try:
+                summary = PurchaseOrderReceptionService.receive_items(
+                    purchase_order=purchase_order,
+                    items_data=items_data,
+                    update_inventory=update_inventory,
+                    general_notes=general_notes,
+                    user=request.user
+                )
 
+                return Response({
+                    'success': True,
+                    'message': 'Items recibidos correctamente',
+                    'items_received': summary['items_received'],
+                    'total_quantity': summary['total_quantity'],
+                    'new_status': summary['new_status'],
+                    'inventory_updated': summary['inventory_updated'],
+                    'reception_details': summary['reception_details']
+                }, status=status.HTTP_200_OK)
+
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Exception as e:
+            logger.error(f"Error receiving items for PO {pk}: {str(e)}")
+            return Response(
+                {'error': 'Error interno al procesar la recepción'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     # ================================
     # ACCIONES MÚLTIPLES
     # ================================

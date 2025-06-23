@@ -221,11 +221,7 @@ const NotificationsPage = {
                     searchable: false,
                     orderable: false,
                     render: (data, type, full) => {
-                        let actions = `
-                            <button class="btn btn-sm btn-icon btn-text-secondary waves-effect rounded-pill me-1 btn-view-notification"
-                                    data-id="${full.id}" title="Ver Detalles">
-                                <i class="ri-eye-line ri-20px"></i>
-                            </button>`;
+                        let actions = ``;
 
                         if (!full.leida) {
                             actions += `
@@ -243,26 +239,7 @@ const NotificationsPage = {
                                 </button>`;
                         }
 
-                        actions += `
-                            <button class="btn btn-sm btn-icon btn-text-secondary waves-effect rounded-pill dropdown-toggle hide-arrow"
-                                    data-bs-toggle="dropdown">
-                                <i class="ri-more-2-line ri-20px"></i>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end m-0">
-                                <a class="dropdown-item btn-view-notification" href="#" data-id="${full.id}">
-                                    <i class="ri-eye-line me-1"></i>Ver Detalles
-                                </a>
-                                ${!full.leida ? `
-                                    <a class="dropdown-item btn-mark-read" href="#" data-id="${full.id}">
-                                        <i class="ri-check-line me-1"></i>Marcar como Leída
-                                    </a>
-                                ` : ''}
-                                ${full.url_accion ? `
-                                    <a class="dropdown-item" href="${full.url_accion}">
-                                        <i class="ri-external-link-line me-1"></i>Ir a Acción
-                                    </a>
-                                ` : ''}
-                            </div>`;
+
 
                         return `<div class="d-flex align-items-center">${actions}</div>`;
                     }

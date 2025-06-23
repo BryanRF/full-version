@@ -2,7 +2,21 @@
  * Purchase Orders Detail JavaScript
  * Funcionalidades para los detalles de órdenes de compra
  */
-
+// Botón de recepción rápida para marcar todo como recibido
+async function quickReceiveAll(config) {
+    const response = await fetch(
+        `/purchasing/purchase-orders/${config.purchaseOrderId}/quick-receive/`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': config.csrfToken
+            },
+            body: JSON.stringify({ receive_type: 'complete' })
+        }
+    );
+    return response;
+}
 $(document).ready(function() {
     'use strict';
 
