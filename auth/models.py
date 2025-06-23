@@ -3,11 +3,13 @@ from django.db import models
 from django.contrib.auth.models import User, Permission, Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.translation import gettext_lazy as _
 
 class Role(models.TextChoices):
-    PLANIFICADOR_COMPRAS = 'PLANIFICADOR_COMPRAS', 'Planificador de Compras'
-    GERENTE_COMPRAS = 'GERENTE_COMPRAS', 'Gerente de Compras'
-    ADMINISTRADOR_SISTEMA = 'ADMINISTRADOR_SISTEMA', 'Administrador del Sistema'
+    """Opciones de roles disponibles en el sistema"""
+    ADMINISTRADOR_SISTEMA = 'ADMINISTRADOR_SISTEMA', _('Administrador del Sistema')
+    GERENTE_COMPRAS = 'GERENTE_COMPRAS', _('Gerente de Compras')
+    PLANIFICADOR_COMPRAS = 'PLANIFICADOR_COMPRAS', _('Planificador de Compras')
 
 class UserStatus(models.TextChoices):
     PENDIENTE = 'PENDIENTE', 'Pendiente'
@@ -93,25 +95,34 @@ class RolePermissionConfig(models.Model):
         max_length=50,
         choices=Role.choices,
         unique=True,
-        verbose_name="Rol"
+        verbose_name=_('Rol')
     )
     group = models.OneToOneField(
         Group,
         on_delete=models.CASCADE,
-        verbose_name="Grupo de Django"
+        related_name='role_config',
+        verbose_name=_('Grupo')
     )
-    description = models.TextField(blank=True, verbose_name="Descripción")
-    is_active = models.BooleanField(default=True, verbose_name="Activo")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Descripción')
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Creado')
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('Actualizado')
+    )
 
     class Meta:
-        verbose_name = "Configuración de Rol"
-        verbose_name_plural = "Configuraciones de Roles"
+        verbose_name = _('Configuración de Permisos por Rol')
+        verbose_name_plural = _('Configuraciones de Permisos por Rol')
         ordering = ['role']
 
     def __str__(self):
-        return f"Permisos para {self.get_role_display()}"
+        return f"{self.get_role_display()} - {self.group.name}"
 
     def get_permissions(self):
         """Obtener todos los permisos del rol"""

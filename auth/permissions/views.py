@@ -1,4 +1,4 @@
-# auth/views.py - Corregido
+# auth/permissions/views.py
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.auth.models import User, Permission, Group
@@ -6,9 +6,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.db import transaction, IntegrityError
 from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework import status
 from web_project import TemplateLayout
-from ..models import Role, RolePermissionConfig
+from auth.models import Role, RolePermissionConfig
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,7 +43,7 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
         modules = {}
 
         # Apps que NO queremos mostrar
-        excluded_apps = ['admin', 'sessions', 'contenttypes']
+        excluded_apps = ['admin', 'sessions', 'contenttypes', 'auth', 'authtoken']
 
         # Permisos específicos que NO queremos mostrar
         excluded_permissions = [
@@ -49,7 +51,18 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
             'add_contenttype', 'change_contenttype', 'delete_contenttype', 'view_contenttype',
             'add_session', 'change_session', 'delete_session', 'view_session',
             'add_logentry', 'change_logentry', 'delete_logentry', 'view_logentry',
+            'add_group', 'change_group', 'delete_group', 'view_group',
         ]
+
+        # Mapeo de nombres de apps a nombres más amigables
+        app_name_mapping = {
+            'ecommerce': 'E-Commerce',
+            'notification': 'Notificaciones',
+            'my_calendar': 'Calendario',
+            'invoice': 'Facturación',
+            'logistics': 'Logística',
+            'academy': 'Academia',
+        }
 
         # Obtener content types filtrados
         content_types = ContentType.objects.exclude(
@@ -60,7 +73,7 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
             app_name = ct.app_label
             if app_name not in modules:
                 modules[app_name] = {
-                    'name': app_name.title().replace('_', ' '),
+                    'name': app_name_mapping.get(app_name, app_name.title().replace('_', ' ')),
                     'permissions': [],
                     'icon': self.get_module_icon(app_name),
                     'color': self.get_module_color(app_name)
@@ -74,11 +87,23 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
             ).order_by('codename')
 
             for perm in permissions:
+                # Traducir nombres de permisos comunes
+                perm_name = perm.name
+                if perm.codename.startswith('add_'):
+                    perm_name = f"Crear {ct.model}"
+                elif perm.codename.startswith('change_'):
+                    perm_name = f"Modificar {ct.model}"
+                elif perm.codename.startswith('delete_'):
+                    perm_name = f"Eliminar {ct.model}"
+                elif perm.codename.startswith('view_'):
+                    perm_name = f"Ver {ct.model}"
+
                 modules[app_name]['permissions'].append({
                     'id': perm.id,
                     'codename': perm.codename,
-                    'name': perm.name,
-                    'content_type': ct.model
+                    'name': perm_name,
+                    'content_type': ct.model,
+                    'module': app_name
                 })
 
         # Remover módulos vacíos
@@ -89,45 +114,61 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
     def get_module_icon(self, app_name):
         """Obtener icono según el módulo"""
         icons = {
-            'auth': 'ri-user-settings-line',
-            'compras': 'ri-shopping-cart-line',
-            'inventario': 'ri-archive-line',
-            'reportes': 'ri-bar-chart-line',
+            'ecommerce': 'ri-shopping-cart-line',
+            'products': 'ri-shopping-bag-line',
+            'suppliers': 'ri-building-line',
+            'purchasing': 'ri-shopping-cart-2-line',
+            'requirements': 'ri-file-list-line',
+            'cotizacion': 'ri-file-text-line',
+            'customers': 'ri-user-line',
+            'sales': 'ri-money-dollar-circle-line',
             'notification': 'ri-notification-3-line',
+            'invoice': 'ri-file-text-line',
+            'logistics': 'ri-truck-line',
+            'academy': 'ri-graduation-cap-line',
+            'my_calendar': 'ri-calendar-line',
         }
         return icons.get(app_name, 'ri-settings-3-line')
 
     def get_module_color(self, app_name):
         """Obtener color según el módulo"""
         colors = {
-            'auth': 'primary',
-            'compras': 'success',
-            'inventario': 'warning',
-            'reportes': 'info',
-            'notification': 'secondary',
+            'ecommerce': 'primary',
+            'products': 'success',
+            'suppliers': 'warning',
+            'purchasing': 'info',
+            'requirements': 'secondary',
+            'notification': 'danger',
+            'invoice': 'dark',
+            'logistics': 'primary',
+            'academy': 'success',
+            'my_calendar': 'info',
         }
         return colors.get(app_name, 'secondary')
 
 class RolePermissionsAPIView(APIView):
     """API para obtener permisos de un rol específico"""
 
-    def get(self, request, role):
+    def get(self, request, *args, **kwargs):
         try:
+            # Obtener el role_code de los kwargs
+            role_code = kwargs.get('role_code', kwargs.get('role'))
+
             # Validar que el rol existe en las opciones válidas
             valid_roles = [choice[0] for choice in Role.choices]
-            if role not in valid_roles:
-                return JsonResponse({
+            if role_code not in valid_roles:
+                return Response({
                     'success': False,
                     'error': f'Rol no válido. Roles válidos: {", ".join(valid_roles)}'
-                }, status=400)
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             # Obtener o crear configuración del rol de forma segura
             with transaction.atomic():
                 try:
-                    role_config = RolePermissionConfig.objects.get(role=role)
+                    role_config = RolePermissionConfig.objects.get(role=role_code)
                 except RolePermissionConfig.DoesNotExist:
                     # Crear grupo único
-                    group_name = f"Grupo_{role}"
+                    group_name = f"Grupo_{role_code}"
                     try:
                         group = Group.objects.get(name=group_name)
                     except Group.DoesNotExist:
@@ -135,66 +176,65 @@ class RolePermissionsAPIView(APIView):
 
                     # Crear configuración del rol
                     role_config = RolePermissionConfig.objects.create(
-                        role=role,
+                        role=role_code,
                         group=group,
-                        description=f"Permisos para {dict(Role.choices)[role]}"
+                        description=f"Permisos para {dict(Role.choices)[role_code]}"
                     )
 
-            # Obtener permisos del rol
-            permissions = role_config.group.permissions.all().values(
-                'id', 'codename', 'name', 'content_type__app_label', 'content_type__model'
-            )
+            # Obtener permisos del rol con información del módulo
+            permissions_data = []
+            permissions = role_config.group.permissions.all().select_related('content_type')
+
+            for perm in permissions:
+                permissions_data.append({
+                    'id': perm.id,
+                    'codename': perm.codename,
+                    'name': perm.name,
+                    'module': perm.content_type.app_label,
+                    'content_type': perm.content_type.model
+                })
 
             # Contar usuarios con este rol
-            users_count = User.objects.filter(profile__role=role).count()
+            users_count = User.objects.filter(profile__role=role_code).count()
 
-            return JsonResponse({
+            return Response({
                 'success': True,
                 'data': {
-                    'role': role,
-                    'role_display': dict(Role.choices)[role],
-                    'permissions': list(permissions),
+                    'role': role_code,
+                    'role_display': dict(Role.choices)[role_code],
+                    'permissions': permissions_data,
                     'users_count': users_count,
                     'description': role_config.description
                 }
             })
 
         except Exception as e:
-            logger.error(f"Error getting role permissions for {role}: {str(e)}")
-            return JsonResponse({
+            logger.error(f"Error getting role permissions for {role_code}: {str(e)}")
+            return Response({
                 'success': False,
                 'error': f'Error interno: {str(e)}'
-            }, status=500)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UpdateRolePermissionsAPIView(APIView):
     """API para actualizar permisos de un rol"""
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         """Manejar peticiones POST"""
         return self._update_permissions(request)
 
-    def put(self, request):
+    def put(self, request, *args, **kwargs):
         """Manejar peticiones PUT"""
         return self._update_permissions(request)
 
-    def patch(self, request):
+    def patch(self, request, *args, **kwargs):
         """Manejar peticiones PATCH"""
         return self._update_permissions(request)
 
     def _update_permissions(self, request):
         """Lógica común para actualizar permisos"""
         try:
-            # Obtener datos dependiendo del Content-Type
-            if hasattr(request, 'data') and request.data:
-                # DRF data (cuando Content-Type es application/json)
-                data = request.data
-            else:
-                # Fallback para otros casos
-                import json
-                if request.content_type == 'application/json':
-                    data = json.loads(request.body.decode('utf-8'))
-                else:
-                    data = request.POST
+            # Obtener datos del request
+            data = request.data if hasattr(request, 'data') else json.loads(request.body)
 
             role = data.get('role')
             permission_ids = data.get('permission_ids', [])
@@ -203,22 +243,30 @@ class UpdateRolePermissionsAPIView(APIView):
             logger.info(f"Updating permissions for role: {role}")
             logger.info(f"Permission IDs: {permission_ids}")
             logger.info(f"Request method: {request.method}")
-            logger.info(f"Content type: {request.content_type}")
 
             # Validar rol
             valid_roles = [choice[0] for choice in Role.choices]
             if not role or role not in valid_roles:
-                return JsonResponse({
+                return Response({
                     'success': False,
                     'error': f'Rol no válido. Roles válidos: {", ".join(valid_roles)}'
-                }, status=400)
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             # Validar que permission_ids sea una lista
             if not isinstance(permission_ids, list):
-                return JsonResponse({
+                return Response({
                     'success': False,
                     'error': 'permission_ids debe ser una lista'
-                }, status=400)
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Convertir IDs a enteros
+            try:
+                permission_ids = [int(pid) for pid in permission_ids]
+            except (ValueError, TypeError):
+                return Response({
+                    'success': False,
+                    'error': 'Los IDs de permisos deben ser números'
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             with transaction.atomic():
                 # Obtener o crear configuración del rol
@@ -227,10 +275,7 @@ class UpdateRolePermissionsAPIView(APIView):
                 except RolePermissionConfig.DoesNotExist:
                     # Crear grupo único
                     group_name = f"Grupo_{role}"
-                    try:
-                        group = Group.objects.get(name=group_name)
-                    except Group.DoesNotExist:
-                        group = Group.objects.create(name=group_name)
+                    group, created = Group.objects.get_or_create(name=group_name)
 
                     role_config = RolePermissionConfig.objects.create(
                         role=role,
@@ -241,13 +286,14 @@ class UpdateRolePermissionsAPIView(APIView):
                 # Validar que los permisos existen
                 if permission_ids:  # Solo validar si hay IDs
                     permissions = Permission.objects.filter(id__in=permission_ids)
-                    if len(permissions) != len(permission_ids):
-                        valid_ids = list(permissions.values_list('id', flat=True))
-                        invalid_ids = [pid for pid in permission_ids if pid not in valid_ids]
-                        return JsonResponse({
+                    found_ids = list(permissions.values_list('id', flat=True))
+                    invalid_ids = [pid for pid in permission_ids if pid not in found_ids]
+
+                    if invalid_ids:
+                        return Response({
                             'success': False,
                             'error': f'Permisos no válidos: {invalid_ids}'
-                        }, status=400)
+                        }, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     # Lista vacía = remover todos los permisos
                     permissions = []
@@ -267,69 +313,79 @@ class UpdateRolePermissionsAPIView(APIView):
                     # Agregar al grupo correcto
                     user.groups.add(role_config.group)
 
-            return JsonResponse({
+            return Response({
                 'success': True,
                 'message': f'Permisos actualizados para el rol {dict(Role.choices)[role]}. {affected_users} usuarios sincronizados.',
                 'affected_users': affected_users,
-                'permissions_count': len(permissions)
+                'permissions_count': len(permissions) if permissions else 0
             })
 
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {str(e)}")
-            return JsonResponse({
+            return Response({
                 'success': False,
                 'error': 'Error en el formato de datos JSON'
-            }, status=400)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             logger.error(f"Error updating role permissions: {str(e)}")
-            logger.error(f"Request data: {getattr(request, 'data', 'No data')}")
-            return JsonResponse({
+            logger.error(f"Request data: {request.data if hasattr(request, 'data') else 'No data'}")
+            return Response({
                 'success': False,
                 'error': f'Error interno: {str(e)}'
-            }, status=500)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UsersByRoleAPIView(APIView):
     """API para obtener usuarios por rol"""
 
-    def get(self, request, role):
+    def get(self, request, *args, **kwargs):
         try:
+            # Obtener el role_code de los kwargs
+            role_code = kwargs.get('role_code', kwargs.get('role'))
+
             # Validar rol
             valid_roles = [choice[0] for choice in Role.choices]
-            if role not in valid_roles:
-                return JsonResponse({
+            if role_code not in valid_roles:
+                return Response({
                     'success': False,
                     'error': f'Rol no válido. Roles válidos: {", ".join(valid_roles)}'
-                }, status=400)
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             users = User.objects.filter(
-                profile__role=role
-            ).select_related('profile').values(
-                'id', 'username', 'email', 'first_name', 'last_name',
-                'profile__status', 'is_active', 'date_joined'
-            )
+                profile__role=role_code
+            ).select_related('profile')
 
-            return JsonResponse({
+            users_data = []
+            for user in users:
+                users_data.append({
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'full_name': user.get_full_name() or f"{user.first_name} {user.last_name}".strip(),
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'status': getattr(user.profile, 'status', 'ACTIVO'),
+                    'is_active': user.is_active,
+                    'date_joined': user.date_joined.isoformat() if user.date_joined else None,
+                    'last_login': user.last_login.isoformat() if user.last_login else None
+                })
+
+            return Response({
                 'success': True,
-                'data': {
-                    'role': role,
-                    'role_display': dict(Role.choices)[role],
-                    'users': list(users),
-                    'count': len(users)
-                }
+                'data': users_data
             })
 
         except Exception as e:
-            logger.error(f"Error getting users by role {role}: {str(e)}")
-            return JsonResponse({
+            logger.error(f"Error getting users by role {role_code}: {str(e)}")
+            return Response({
                 'success': False,
                 'error': f'Error interno: {str(e)}'
-            }, status=500)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RoleStatsAPIView(APIView):
     """API para obtener estadísticas de roles"""
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         try:
             stats = {}
 
@@ -355,22 +411,22 @@ class RoleStatsAPIView(APIView):
                     'permissions_count': permissions_count
                 }
 
-            return JsonResponse({
+            return Response({
                 'success': True,
                 'data': stats
             })
 
         except Exception as e:
             logger.error(f"Error getting role stats: {str(e)}")
-            return JsonResponse({
+            return Response({
                 'success': False,
                 'error': f'Error interno: {str(e)}'
-            }, status=500)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class SyncUserRolesAPIView(APIView):
     """API para sincronizar usuarios con sus grupos de roles"""
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         try:
             synced_users = 0
             errors = []
@@ -393,10 +449,7 @@ class SyncUserRolesAPIView(APIView):
                             except RolePermissionConfig.DoesNotExist:
                                 # Crear configuración si no existe
                                 group_name = f"Grupo_{user.profile.role}"
-                                try:
-                                    group = Group.objects.get(name=group_name)
-                                except Group.DoesNotExist:
-                                    group = Group.objects.create(name=group_name)
+                                group, created = Group.objects.get_or_create(name=group_name)
 
                                 role_config = RolePermissionConfig.objects.create(
                                     role=user.profile.role,
@@ -417,7 +470,7 @@ class SyncUserRolesAPIView(APIView):
             if errors:
                 message += f' con {len(errors)} errores'
 
-            return JsonResponse({
+            return Response({
                 'success': True,
                 'message': message,
                 'synced_users': synced_users,
@@ -426,7 +479,7 @@ class SyncUserRolesAPIView(APIView):
 
         except Exception as e:
             logger.error(f"Error syncing user roles: {str(e)}")
-            return JsonResponse({
+            return Response({
                 'success': False,
                 'error': f'Error interno: {str(e)}'
-            }, status=500)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

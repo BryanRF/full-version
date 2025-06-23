@@ -81,7 +81,7 @@ function setupEventListeners() {
 
 function loadRoleStats() {
     $.ajax({
-        url: '/auth/role-permissions/stats/',
+        url: '/role-permissions/stats/',
         method: 'GET',
         headers: {
             'X-CSRFToken': csrftoken
@@ -168,7 +168,7 @@ function loadRolePermissions(roleCode) {
     `);
 
     $.ajax({
-        url: `/auth/role-permissions/${roleCode}/`,
+        url: `/role-permissions/${roleCode}/`,
         method: 'GET',
         headers: {
             'X-CSRFToken': csrftoken
@@ -369,7 +369,7 @@ function confirmSaveChanges() {
     console.log('Enviando datos:', requestData); // Para debug
 
     $.ajax({
-        url: '/auth/role-permissions/update/',
+        url: '/role-permissions/update/',
         method: 'POST', // CORREGIDO: Cambiado de OPTIONS a POST
         headers: {
             'X-CSRFToken': csrftoken,
@@ -443,7 +443,7 @@ function viewRoleUsers() {
     $('#roleUsersModal').modal('show');
 
     $.ajax({
-        url: `/auth/role-permissions/${currentRole}/users/`,
+        url: `/role-permissions/${currentRole}/users/`,
         method: 'GET',
         headers: {
             'X-CSRFToken': csrftoken
