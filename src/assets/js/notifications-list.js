@@ -26,10 +26,10 @@ const NotificationsPage = {
     init() {
         this.config.csrfToken = this.getCookie('csrftoken');
         this.elements.table = $('.datatables-notifications');
-        
+
         // Debug: Verificar que la URL funcione
         this.testAPIConnection();
-        
+
         this.initializeDataTable();
         this.setupEventHandlers();
         this.setupFilters();
@@ -45,13 +45,13 @@ const NotificationsPage = {
         try {
             console.log('🔍 Probando conexión con:', this.config.apiEndpoint);
             const response = await fetch(this.config.apiEndpoint + '?limit=1');
-            
+
             if (response.ok) {
                 const data = await response.json();
                 console.log('✅ API responde correctamente:', data);
             } else {
                 console.error('❌ Error de API:', response.status, response.statusText);
-                
+
                 // Intentar con la API alternativa
                 console.log('🔄 Probando API alternativa...');
                 const altResponse = await fetch('/api/notificaciones/?limit=1');
@@ -98,7 +98,7 @@ const NotificationsPage = {
 
         this.elements.dataTable = this.elements.table.DataTable({
             ajax: {
-                url: this.config.currentUrl,
+                url:  this.config.currentUrl ,
                 dataSrc: function(json) {
                     // Actualizar estadísticas cuando se cargan los datos
                     if (json.unread_count !== undefined) {
@@ -164,7 +164,7 @@ const NotificationsPage = {
                     render: (data, type, full) => {
                         const unreadClass = !full.leida ? 'fw-bold' : '';
                         const unreadDot = !full.leida ? '<span class="badge badge-dot bg-primary me-2"></span>' : '';
-                        
+
                         return `<div class="d-flex align-items-center">
                             ${unreadDot}
                             <div>
@@ -179,11 +179,11 @@ const NotificationsPage = {
                     targets: 4,
                     render: (data) => {
                         if (!data) return '<span class="text-muted">Sin mensaje</span>';
-                        
+
                         const maxLength = 60;
-                        const truncated = data.length > maxLength ? 
+                        const truncated = data.length > maxLength ?
                             data.substring(0, maxLength) + '...' : data;
-                        
+
                         return `<span class="text-truncate d-block" title="${data}">${truncated}</span>`;
                     }
                 },
@@ -194,7 +194,7 @@ const NotificationsPage = {
                         const date = new Date(data);
                         const today = new Date();
                         const isToday = date.toDateString() === today.toDateString();
-                        
+
                         return `<div>
                             <span class="fw-medium">${date.toLocaleDateString()}</span>
                             <small class="text-muted d-block">
@@ -222,29 +222,29 @@ const NotificationsPage = {
                     orderable: false,
                     render: (data, type, full) => {
                         let actions = `
-                            <button class="btn btn-sm btn-icon btn-text-secondary waves-effect rounded-pill me-1 btn-view-notification" 
+                            <button class="btn btn-sm btn-icon btn-text-secondary waves-effect rounded-pill me-1 btn-view-notification"
                                     data-id="${full.id}" title="Ver Detalles">
                                 <i class="ri-eye-line ri-20px"></i>
                             </button>`;
-                        
+
                         if (!full.leida) {
                             actions += `
-                                <button class="btn btn-sm btn-icon btn-text-success waves-effect rounded-pill me-1 btn-mark-read" 
+                                <button class="btn btn-sm btn-icon btn-text-success waves-effect rounded-pill me-1 btn-mark-read"
                                         data-id="${full.id}" title="Marcar como Leída">
                                     <i class="ri-check-line ri-20px"></i>
                                 </button>`;
                         }
-                        
+
                         if (full.url_accion) {
                             actions += `
-                                <button class="btn btn-sm btn-icon btn-text-primary waves-effect rounded-pill me-1 btn-go-action" 
+                                <button class="btn btn-sm btn-icon btn-text-primary waves-effect rounded-pill me-1 btn-go-action"
                                         data-url="${full.url_accion}" data-id="${full.id}" title="Ir a Acción">
                                     <i class="ri-external-link-line ri-20px"></i>
                                 </button>`;
                         }
-                        
+
                         actions += `
-                            <button class="btn btn-sm btn-icon btn-text-secondary waves-effect rounded-pill dropdown-toggle hide-arrow" 
+                            <button class="btn btn-sm btn-icon btn-text-secondary waves-effect rounded-pill dropdown-toggle hide-arrow"
                                     data-bs-toggle="dropdown">
                                 <i class="ri-more-2-line ri-20px"></i>
                             </button>
@@ -263,7 +263,7 @@ const NotificationsPage = {
                                     </a>
                                 ` : ''}
                             </div>`;
-                        
+
                         return `<div class="d-flex align-items-center">${actions}</div>`;
                     }
                 }
@@ -325,7 +325,7 @@ const NotificationsPage = {
                     type: 'column',
                     renderer: function (api, rowIdx, columns) {
                         const data = $.map(columns, function (col, i) {
-                            return col.title !== '' ? 
+                            return col.title !== '' ?
                                 '<tr data-dt-row="' + col.rowIndex + '" data-dt-column="' + col.columnIndex + '">' +
                                 '<td>' + col.title + ':</td>' +
                                 '<td class="ps-0">' + col.data + '</td>' +
@@ -381,7 +381,7 @@ const NotificationsPage = {
                 color: 'secondary'
             }
         };
-        
+
         return types[type] || types['SISTEMA'];
     },
 
@@ -435,7 +435,7 @@ const NotificationsPage = {
         $('#statusFilter').val('');
         $('#typeFilter').val('');
         $('#searchFilter').val('');
-        
+
         this.config.currentUrl = this.config.apiEndpoint;
         this.elements.dataTable.ajax.url(this.config.currentUrl).load();
     },
@@ -517,11 +517,11 @@ const NotificationsPage = {
         const unreadElement = document.getElementById('unreadNotifications');
         const totalElement = document.getElementById('totalNotifications');
         const readElement = document.getElementById('readNotifications');
-        
+
         if (unreadElement) unreadElement.textContent = unreadCount || 0;
         if (totalElement) totalElement.textContent = totalCount || 0;
         if (readElement) readElement.textContent = (totalCount - unreadCount) || 0;
-        
+
         // Calcular notificaciones de hoy
         this.updateTodayNotifications();
     },
@@ -531,13 +531,13 @@ const NotificationsPage = {
      */
     updateTodayNotifications() {
         if (!this.notifications || this.notifications.length === 0) return;
-        
+
         const today = new Date().toDateString();
         const todayCount = this.notifications.filter(notification => {
             const notificationDate = new Date(notification.fecha_hora).toDateString();
             return notificationDate === today;
         }).length;
-        
+
         const todayElement = document.getElementById('todayNotifications');
         if (todayElement) {
             todayElement.textContent = todayCount;
@@ -554,10 +554,10 @@ const NotificationsPage = {
             if (response.ok) {
                 const notification = await response.json();
                 this.renderNotificationDetails(notification);
-                
+
                 const modal = new bootstrap.Modal(document.getElementById('notificationDetailsModal'));
                 modal.show();
-                
+
                 // Marcar como leída si no lo está
                 if (!notification.leida) {
                     this.markAsRead(notificationId);
@@ -579,7 +579,7 @@ const NotificationsPage = {
         const typeInfo = this.getNotificationTypeInfo(notification.tipo_notificacion);
         const actualColor = notification.color || typeInfo.color;
         const actualIcon = notification.icono || typeInfo.icon;
-        
+
         content.innerHTML = `
             <div class="row">
                 <div class="col-md-8">
@@ -594,12 +594,12 @@ const NotificationsPage = {
                             <p class="text-muted mb-0">${notification.tipo_notificacion_display || typeInfo.label}</p>
                         </div>
                     </div>
-                    
+
                     <div class="mb-4">
                         <h6>Mensaje</h6>
                         <p class="text-body">${notification.mensaje}</p>
                     </div>
-                    
+
                     ${notification.datos_adicionales && Object.keys(notification.datos_adicionales).length > 0 ? `
                         <div class="mb-4">
                             <h6>Información Adicional</h6>
@@ -609,12 +609,12 @@ const NotificationsPage = {
                         </div>
                     ` : ''}
                 </div>
-                
+
                 <div class="col-md-4">
                     <h6>Información</h6>
                     <ul class="list-unstyled">
                         <li class="mb-2">
-                            <strong>Estado:</strong> 
+                            <strong>Estado:</strong>
                             <span class="badge rounded-pill bg-label-${notification.leida ? 'success' : 'primary'}">
                                 ${notification.leida ? 'Leída' : 'No Leída'}
                             </span>
@@ -630,7 +630,7 @@ const NotificationsPage = {
                         </li>
                         ${notification.url_accion ? `
                             <li class="mb-2">
-                                <strong>Acción:</strong> 
+                                <strong>Acción:</strong>
                                 <a href="${notification.url_accion}" class="text-primary">Ir a la acción</a>
                             </li>
                         ` : ''}
@@ -638,25 +638,25 @@ const NotificationsPage = {
                 </div>
             </div>
         `;
-        
+
         // Actualizar botones de acción
         const actionsContainer = document.getElementById('notificationActionsButtons');
         let actionButtons = '';
-        
+
         if (!notification.leida) {
             actionButtons += `
                 <button type="button" class="btn btn-success me-2" onclick="NotificationsPage.markAsRead(${notification.id})">
                     <i class="ri-check-line me-1"></i>Marcar como Leída
                 </button>`;
         }
-        
+
         if (notification.url_accion) {
             actionButtons += `
                 <button type="button" class="btn btn-primary" onclick="NotificationsPage.goToAction('${notification.url_accion}', ${notification.id})">
                     <i class="ri-external-link-line me-1"></i>Ir a Acción
                 </button>`;
         }
-        
+
         actionsContainer.innerHTML = actionButtons;
     },
 
@@ -665,18 +665,18 @@ const NotificationsPage = {
      */
     formatAdditionalData(data) {
         let html = '<div class="row">';
-        
+
         for (const [key, value] of Object.entries(data)) {
             const label = this.formatFieldLabel(key);
             const formattedValue = this.formatFieldValue(key, value);
-            
+
             html += `
                 <div class="col-md-6 mb-2">
                     <strong>${label}:</strong> ${formattedValue}
                 </div>
             `;
         }
-        
+
         html += '</div>';
         return html;
     },
@@ -698,7 +698,7 @@ const NotificationsPage = {
             'stock_minimo': 'Stock Mínimo',
             'prioridad': 'Prioridad'
         };
-        
+
         return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     },
 
@@ -709,7 +709,7 @@ const NotificationsPage = {
         if (value === null || value === undefined) {
             return '<span class="text-muted">No especificado</span>';
         }
-        
+
         // Formatear estados
         if (key.includes('estado')) {
             const estados = {
@@ -724,22 +724,22 @@ const NotificationsPage = {
             };
             return estados[value] || `<span class="badge bg-secondary">${value}</span>`;
         }
-        
+
         // Formatear números de requerimiento como enlaces
         if (key === 'numero_requerimiento' && typeof value === 'string' && value.startsWith('REQ-')) {
             const reqId = value.replace('REQ-', '').replace(/^0+/, ''); // Quitar ceros al inicio
             return `<a href="/app/requirements/details/${reqId}/" class="text-primary">${value}</a>`;
         }
-        
+
         // Formatear IDs como enlaces
         if (key === 'requerimiento_id') {
             return `<a href="/app/requirements/details/${value}/" class="text-primary">${value}</a>`;
         }
-        
+
         if (key === 'producto_id') {
             return `<a href="/app/ecommerce/product/add/?edit=${value}" class="text-primary">${value}</a>`;
         }
-        
+
         return String(value);
     },
 
@@ -762,7 +762,7 @@ const NotificationsPage = {
                     toastr.success('Notificación marcada como leída');
                     this.reload();
                     this.loadStatistics();
-                    
+
                     // Cerrar modal si está abierto
                     const modal = bootstrap.Modal.getInstance(document.getElementById('notificationDetailsModal'));
                     if (modal) modal.hide();
@@ -783,7 +783,7 @@ const NotificationsPage = {
         if (!confirm('¿Está seguro de marcar todas las notificaciones como leídas?')) {
             return;
         }
-        
+
         try {
             const response = await fetch('/api/notificaciones/marcar_todas_leidas/', {
                 method: 'PATCH',
@@ -813,7 +813,7 @@ const NotificationsPage = {
     goToAction(url, notificationId) {
         // Marcar como leída antes de redirigir
         this.markAsRead(notificationId);
-        
+
         // Redirigir después de un pequeño delay
         setTimeout(() => {
             window.location.href = url;
@@ -856,12 +856,12 @@ const NotificationsPage = {
             const originalAddNotification = window.notificationSystem.addNewNotification;
             window.notificationSystem.addNewNotification = (notification) => {
                 originalAddNotification.call(window.notificationSystem, notification);
-                
+
                 // Recargar la tabla si estamos en la página de notificaciones
                 this.reload();
                 this.loadStatistics();
             };
-            
+
             this.showConnectionStatus(true);
         } else {
             this.showConnectionStatus(false);
@@ -874,7 +874,7 @@ const NotificationsPage = {
     showConnectionStatus(connected) {
         const toast = document.getElementById('connectionToast');
         const status = document.getElementById('connectionStatus');
-        
+
         if (connected) {
             toast.className = 'toast align-items-center text-white bg-success border-0';
             status.innerHTML = '<i class="ri-wifi-line me-2"></i>Conectado a notificaciones en tiempo real';
@@ -882,7 +882,7 @@ const NotificationsPage = {
             toast.className = 'toast align-items-center text-white bg-warning border-0';
             status.innerHTML = '<i class="ri-wifi-off-line me-2"></i>Modo offline - Actualización manual';
         }
-        
+
         const bsToast = new bootstrap.Toast(toast, {
             autohide: true,
             delay: 3000

@@ -87,21 +87,12 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
             ).order_by('codename')
 
             for perm in permissions:
-                # Traducir nombres de permisos comunes
-                perm_name = perm.name
-                if perm.codename.startswith('add_'):
-                    perm_name = f"Crear {ct.model}"
-                elif perm.codename.startswith('change_'):
-                    perm_name = f"Modificar {ct.model}"
-                elif perm.codename.startswith('delete_'):
-                    perm_name = f"Eliminar {ct.model}"
-                elif perm.codename.startswith('view_'):
-                    perm_name = f"Ver {ct.model}"
-
+                # El nombre del permiso ya debería venir en español desde la BD
+                # Solo usamos el nombre tal como está almacenado
                 modules[app_name]['permissions'].append({
                     'id': perm.id,
                     'codename': perm.codename,
-                    'name': perm_name,
+                    'name': perm.name,  # Usar directamente el nombre del permiso
                     'content_type': ct.model,
                     'module': app_name
                 })
@@ -110,6 +101,16 @@ class RolePermissionsView(PermissionRequiredMixin, TemplateView):
         modules = {k: v for k, v in modules.items() if v['permissions']}
 
         return modules
+
+    def get_model_verbose_name(self, content_type):
+        """Obtener el nombre verbose del modelo si está disponible"""
+        try:
+            model_class = content_type.model_class()
+            if model_class and hasattr(model_class, '_meta'):
+                return model_class._meta.verbose_name
+        except:
+            pass
+        return content_type.model.replace('_', ' ').title()
 
     def get_module_icon(self, app_name):
         """Obtener icono según el módulo"""

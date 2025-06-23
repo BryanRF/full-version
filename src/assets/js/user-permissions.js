@@ -370,7 +370,7 @@ function confirmSaveChanges() {
 
     $.ajax({
         url: '/role-permissions/update/',
-        method: 'POST', // CORREGIDO: Cambiado de OPTIONS a POST
+        method: 'POST',
         headers: {
             'X-CSRFToken': csrftoken,
             'Content-Type': 'application/json'
@@ -443,7 +443,7 @@ function viewRoleUsers() {
     $('#roleUsersModal').modal('show');
 
     $.ajax({
-        url: `/role-permissions/${currentRole}/users/`,
+        url: `/role-permissions/users/${currentRole}/`,  // CORREGIDA: URL correcta según auth/urls.py
         method: 'GET',
         headers: {
             'X-CSRFToken': csrftoken
@@ -473,7 +473,7 @@ function viewRoleUsers() {
 }
 
 function displayRoleUsers(users) {
-    if (users.length === 0) {
+    if (!users || users.length === 0) {
         $('#roleUsersContent').html(`
             <div class="alert alert-info">
                 <i class="ri-information-line me-2"></i>
@@ -538,4 +538,41 @@ function displayRoleUsers(users) {
     `;
 
     $('#roleUsersContent').html(html);
+}
+
+// Función para sincronizar todos los usuarios con sus roles
+function syncAllUserRoles() {
+    if (!confirm('¿Está seguro de sincronizar todos los usuarios con sus grupos de roles?')) {
+        return;
+    }
+
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sincronizando...';
+
+    $.ajax({
+        url: '/role-permissions/sync/',
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        success: function(response) {
+            if (response.success) {
+                toastr['success']('', response.message);
+                // Recargar estadísticas
+                loadRoleStats();
+            } else {
+                toastr['error']('', response.error || 'Error al sincronizar usuarios');
+            }
+        },
+        error: function(xhr) {
+            console.error('Error syncing users:', xhr);
+            toastr['error']('', 'Error al sincronizar usuarios');
+        },
+        complete: function() {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    });
 }

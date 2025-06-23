@@ -7,6 +7,7 @@
       "name": "Almacen",
       "icon": "menu-icon tf-icons ri-shopping-bag-3-line",
       "slug": "app-ecommerce",
+      "permission": "ecommerce.view_product",
       "submenu": [
         {
           "url": "app-ecommerce-dashboard",
@@ -16,77 +17,91 @@
         {
           "name": "Productos",
           "slug": "app-ecommerce-product",
+          "permission": "ecommerce.view_product",
           "submenu": [
             {
               "url": "app-ecommerce-product-list",
               "name": "Lista Productos",
-              "slug": "app-ecommerce-product-list"
+              "slug": "app-ecommerce-product-list",
+              "permission": "ecommerce.view_product"
             },
             {
               "url": "app-ecommerce-product-add",
               "name": "Agregar Productos",
-              "slug": "app-ecommerce-product-add"
+              "slug": "app-ecommerce-product-add",
+              "permission": "ecommerce.add_product"
             },
             {
               "url": "app-ecommerce-product-category-list",
               "name": "Lista Categorias",
-              "slug": "app-ecommerce-product-category-list"
-            }
-          ]
-        },
-        {
-          "name": "Proveedores",
-          "slug": "app-ecommerce-customer",
-          "submenu": [
-            {
-              "url": "app-ecommerce-customer-all",
-              "name": "Lista Proveedores",
-              "slug": "app-ecommerce-customer-all"
+              "slug": "app-ecommerce-product-category-list",
+              "permission": "ecommerce.view_category"
             }
           ]
         }
       ]
     },
     {
+      "name": "Proveedores",
+      "icon": "menu-icon tf-icons ri-building-line",
+      "slug": "app-ecommerce-supplier",
+      "permission": "ecommerce.view_supplier",
+      "submenu": [
+        {
+          "url": "app-ecommerce-customer-all",
+          "name": "Lista Proveedores",
+          "slug": "app-ecommerce-customer-all",
+          "permission": "ecommerce.view_supplier"
+        }
+      ]
+    },
+    {
       "name": "Gestion Compras",
-      "icon": "menu-icon tf-icons ri-bill-line",
-      "slug": "app-ecommerce-customer",
+      "icon": "menu-icon tf-icons ri-shopping-cart-2-line",
+      "slug": "app-purchasing",
       "submenu": [
         {
           "name": "Requerimientos",
-          "slug": "app-ecommerce-customer",
+          "slug": "app-requirements",
+          "permission": "ecommerce.view_requirement",
           "submenu": [
             {
               "url": "app-requirements-list",
               "name": "Listado Requerimientos",
-              "slug": "app-requirements-list"
+              "slug": "app-requirements-list",
+              "permission": "ecommerce.view_requirement"
             },
             {
               "url": "app-requirements-add",
               "name": "Agregar Requerimiento",
-              "slug": "app-requirements-add"
+              "slug": "app-requirements-add",
+              "permission": "ecommerce.add_requirement"
             }
           ]
         },
         {
           "name": "Cotizaciones",
-          "slug": "app-ecommerce-customer",
+          "slug": "app-cotizacion",
+          "permission": "ecommerce.view_cotizacion",
           "submenu": [
             {
               "url": "app-cotizacion-list",
               "name": "Listado Cotizaciones",
-              "slug": "app-cotizacion-list"
+              "slug": "app-cotizacion-list",
+              "permission": "ecommerce.view_cotizacion"
             }
           ]
         },
         {
           "name": "Compras",
           "slug": "app-purchase-orders",
+          "permission": "ecommerce.view_purchaseorder",
           "submenu": [
             {
               "url": "app-purchase-orders-list",
               "name": "Listado Compras",
-              "slug": "app-purchase-orders-list"
+              "slug": "app-purchase-orders-list",
+              "permission": "ecommerce.view_purchaseorder"
             }
           ]
         }
@@ -95,62 +110,68 @@
     {
       "name": "Ventas",
       "icon": "menu-icon tf-icons ri-shopping-cart-line",
-      "permission": "user.view_user",
       "slug": "app-sales",
+      "permission": "ecommerce.view_sale",
       "submenu": [
         {
           "url": "app-sales-pos",
           "name": "Punto de venta",
-          "slug": "app-sales-pos"
+          "slug": "app-sales-pos",
+          "permission": "ecommerce.add_sale"
         },
         {
           "url": "app-sales-list",
           "name": "Lista de venta",
-          "slug": "app-sales-list"
+          "slug": "app-sales-list",
+          "permission": "ecommerce.view_sale"
         }
       ]
     },
     {
       "name": "Clientes",
       "icon": "menu-icon tf-icons ri-user-3-line",
-      "permission": "user.view_user",
-      "slug": "app-customers-list",
+      "slug": "app-customers",
+      "permission": "ecommerce.view_customer",
       "submenu": [
         {
           "url": "app-customers-list",
           "name": "Lista Clientes",
-          "slug": "app-customers-list"
+          "slug": "app-customers-list",
+          "permission": "ecommerce.view_customer"
         }
       ]
     },
     {
       "name": "Usuarios",
       "icon": "menu-icon tf-icons ri-user-line",
-      "permission": "user.view_user",
       "slug": "app-user",
+      "permission": "auth.view_user",
       "submenu": [
         {
           "url": "app-user-list",
           "name": "Lista",
-          "slug": "app-user-list"
+          "slug": "app-user-list",
+          "permission": "auth.view_user"
         },
         {
           "url": "notifications-list-page",
           "name": "Notificaciones",
-          "slug": "notifications-list-page"
+          "slug": "notifications-list-page",
+          "permission": "notification.view_notificacion"
         }
       ]
     },
     {
       "name": "Roles & Permisos",
       "icon": "menu-icon tf-icons ri-lock-2-line",
-      "permission": "permission.view_permission",
       "slug": "app-access",
+      "permission": "auth.view_user",
       "submenu": [
         {
           "url": "role-permissions",
           "name": "Permisos",
-          "slug": "role-permissions"
+          "slug": "role-permissions",
+          "permission": "auth.change_user"
         }
       ]
     }

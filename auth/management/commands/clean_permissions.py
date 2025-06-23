@@ -55,6 +55,8 @@ class Command(BaseCommand):
 
             # Permisos de eliminación (delete) - no están en el menú
             'delete_category', 'delete_customer', 'delete_customercontact',
+            'add_category', 'add_customer', 'add_product', 'add_requirement', 'add_sale', 'add_supplier',
+
             'delete_enviocotizacion', 'delete_product', 'delete_purchaseorder',
             'delete_requirement', 'delete_requirementdetail', 'delete_respuestacotizacion',
             'delete_sale', 'delete_salepayment', 'delete_supplier', 'delete_suppliercontact',
@@ -76,7 +78,7 @@ class Command(BaseCommand):
             'add_rolepermissionconfig', 'add_userpermissionassignment', 'add_userpermissiongroup',
 
             # Permisos de visualización que no están en el menú
-            'view_customercontact', 'view_enviocotizacion', 'view_purchaseorder',
+            'view_customercontact', 'view_enviocotizacion',
             'view_requirementdetail', 'view_respuestacotizacion', 'view_salepayment',
             'view_suppliercontact', 'view_permissionmodule', 'view_profile',
             'view_rolepermissionconfig', 'view_userpermissionassignment', 'view_userpermissiongroup'
