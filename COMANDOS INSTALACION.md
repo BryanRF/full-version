@@ -27,7 +27,7 @@ virtualenv venv
 pip install -r requirements.txt
 ```
 
-### 4. Aplicar migraciones
+### 4. Aplicar migraciones (OPCIONAL YA ESTA CARGADO)
 
 ```bash
 python manage.py makemigrations
@@ -35,10 +35,12 @@ python manage.py makemigrations notification
 python manage.py migrate
 ```
 
-### 5. Limpiar permisos (si es necesario)
+### 5. Limpiar permisos Y TRADUCIRLOS (si es necesario)
 
 ```bash
 python manage.py clean_permissions --force
+python manage.py translate_permissions
+
 ```
 
 ### 6. Crear superusuario para acceder al panel de administración
