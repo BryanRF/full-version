@@ -313,13 +313,7 @@ const PurchaseOrdersList = {
                     }
                 ]
             },
-            {
-                text: '<i class="ri-add-line me-1"></i>Nueva Orden',
-                className: 'btn btn-primary waves-effect waves-light',
-                action: () => {
-                    window.location.href = '/app/purchase-orders/create/';
-                }
-            }
+            
         ];
     },
 

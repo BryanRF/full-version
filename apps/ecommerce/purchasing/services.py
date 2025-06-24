@@ -719,3 +719,25 @@ class PurchaseOrderReceptionService:
             purchase_order.save(update_fields=['status'])
 
         return new_status
+
+    @staticmethod
+    def _create_reception_log(purchase_order: PurchaseOrder, reception_details: List[Dict], general_notes: str, user=None):
+        """Crear log de recepción (opcional - si tienes modelo de logs)"""
+        try:
+            # Si tienes un modelo de logs de recepción, crear aquí
+            # PurchaseOrderReceptionLog.objects.create(
+            #     purchase_order=purchase_order,
+            #     items_received=len(reception_details),
+            #     total_quantity=sum(detail['quantity_received_now'] for detail in reception_details),
+            #     reception_data={
+            #         'details': reception_details,
+            #         'timestamp': timezone.now().isoformat()
+            #     },
+            #     general_notes=general_notes,
+            #     received_by=user,
+            #     order_status_after=purchase_order.status,
+            #     inventory_updated=True
+            # )
+            logger.info(f"Reception log created for PO {purchase_order.po_number}")
+        except Exception as e:
+            logger.error(f"Error creating reception log: {str(e)}")

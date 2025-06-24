@@ -20,7 +20,7 @@
 
 {% block page_js %}
 {{ block.super }}
-<script src="{% static 'js/purchase-orders-detail.js' %}"></script>
+<script src="{% static 'js/purchase-order-detail.js' %}"></script>
 {% endblock page_js %}
 
 {% block content %}
@@ -58,7 +58,7 @@
               <div class="avatar avatar-lg me-4">
                 <span class="avatar-initial rounded bg-label-primary" id="statusIcon">📋</span>
               </div>
-              <div>
+              <div> 
                 <h5 class="mb-1" id="supplierName">Cargando...</h5>
                 <p class="mb-0 text-muted" id="supplierContact">-</p>
                 <div class="mt-2">
@@ -90,13 +90,13 @@
             <dl class="row mb-0">
               <dt class="col-sm-5">Número:</dt>
               <dd class="col-sm-7" id="orderNumber">-</dd>
-              
+
               <dt class="col-sm-5">Fecha Orden:</dt>
               <dd class="col-sm-7" id="orderDate">-</dd>
-              
+
               <dt class="col-sm-5">Entrega Esperada:</dt>
               <dd class="col-sm-7" id="expectedDelivery">-</dd>
-              
+
               <dt class="col-sm-5">Creado por:</dt>
               <dd class="col-sm-7" id="createdBy">-</dd>
             </dl>
@@ -111,7 +111,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="mt-4" id="notesSection" style="display: none;">
           <h6>Notas</h6>
           <p class="text-muted" id="orderNotes">-</p>
@@ -166,26 +166,26 @@
         <dl class="row mb-0">
           <dt class="col-6">Prioridad:</dt>
           <dd class="col-6" id="priority">-</dd>
-          
+
           <dt class="col-6">Términos de Pago:</dt>
           <dd class="col-6" id="paymentTerms">-</dd>
-          
+
           <dt class="col-6">Estado:</dt>
           <dd class="col-6" id="currentStatus">-</dd>
-          
+
           <dt class="col-6">Creado:</dt>
           <dd class="col-6" id="createdAt">-</dd>
         </dl>
-        
+
         <hr>
-        
+
         <dl class="row mb-0">
           <dt class="col-6">Subtotal:</dt>
           <dd class="col-6" id="subtotalAmount">S/.0.00</dd>
-          
+
           <dt class="col-6">IGV (18%):</dt>
           <dd class="col-6" id="taxAmount">S/.0.00</dd>
-          
+
           <dt class="col-6"><strong>Total:</strong></dt>
           <dd class="col-6"><strong id="totalAmountSidebar">S/.0.00</strong></dd>
         </dl>

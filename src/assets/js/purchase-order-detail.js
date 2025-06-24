@@ -1169,8 +1169,9 @@ const PurchaseOrderDetailActions = {
         this.showLoading('Cambiando estado...');
 
         try {
+            // Usar la acción del ViewSet
             const response = await fetch(
-                this.config.apiUrls.poActions.replace('{id}', this.config.purchaseOrderId),
+                `/purchasing/purchase-orders/${this.config.purchaseOrderId}/actions/`,
                 {
                     method: 'POST',
                     headers: {
@@ -1469,8 +1470,15 @@ const PurchaseOrderDetailActions = {
         }
 
         try {
+            // Estructurar datos según lo que espera el servicio
+            const payload = {
+                received_items: receptionData.items,  // El servicio espera 'received_items'
+                update_inventory: receptionData.update_inventory,
+                general_notes: receptionData.general_notes || `Recepción realizada el ${new Date().toLocaleString()}`
+            };
+
             const response = await fetch(
-                this.config.apiUrls.receiveItems.replace('{id}', this.config.purchaseOrderId),
+                `/purchasing/purchase-orders/${this.config.purchaseOrderId}/receive-items/`,
                 {
                     method: 'POST',
                     headers: {
@@ -1478,11 +1486,7 @@ const PurchaseOrderDetailActions = {
                         'X-CSRFToken': this.config.csrfToken,
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({
-                        items: receptionData.items,
-                        update_inventory: receptionData.update_inventory,
-                        general_notes: receptionData.general_notes || `Recepción realizada el ${new Date().toLocaleString()}`
-                    })
+                    body: JSON.stringify(payload)
                 }
             );
 
@@ -1975,8 +1979,8 @@ const PurchaseOrderDetailActions = {
         this.showLoading('Generando PDF...');
 
         try {
-            // Usar la URL correcta del endpoint
-            const pdfUrl = this.config.apiUrls.exportPdf.replace('{id}', this.config.purchaseOrderId);
+            // Usar la acción del ViewSet para exportar PDF
+            const pdfUrl = `/purchasing/purchase-orders/${this.config.purchaseOrderId}/export_pdf/`;
             
             // Crear un iframe temporal para la descarga
             const iframe = document.createElement('iframe');

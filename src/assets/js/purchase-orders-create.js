@@ -551,7 +551,7 @@ $(document).ready(function() {
             },
             data: JSON.stringify(formData),
             success: function(response) {
-console.log('✅ Respuesta completa:', response); // ✅ Debug log
+                console.log('✅ Respuesta completa:', response); // ✅ Debug log
 
                 // ✅ Manejar diferentes formatos de respuesta
                 let orderId = null;
