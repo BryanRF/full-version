@@ -80,7 +80,6 @@ const PurchaseOrdersList = {
         this.elements.refreshButton = document.getElementById('refreshTable');
         this.elements.statusFilter = document.getElementById('statusFilter');
         this.elements.supplierFilter = document.getElementById('supplierFilter');
-        this.elements.confirmReceiveBtn = document.getElementById('confirmReceiveBtn');
 
         // Analytics elements
         this.elements.totalOrders = document.getElementById('totalOrders');
@@ -125,12 +124,7 @@ const PurchaseOrdersList = {
             }
         });
 
-        // Confirmar recepción
-        if (this.elements.confirmReceiveBtn) {
-            this.elements.confirmReceiveBtn.addEventListener('click', () => {
-                this.processItemsReception();
-            });
-        }
+    
 
         // Refresh
         if (this.elements.refreshButton) {
@@ -639,17 +633,7 @@ const PurchaseOrdersList = {
             </div>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Acción Rápida de Recepción:</label>
-            <div class="btn-group w-100" role="group">
-                <button type="button" class="btn btn-outline-success" onclick="this.markAsPartiallyReceived(${po.id})">
-                    <i class="ri-truck-line me-1"></i>Recepción Parcial
-                </button>
-                <button type="button" class="btn btn-outline-primary" onclick="this.markAsCompletelyReceived(${po.id})">
-                    <i class="ri-check-double-line me-1"></i>Recepción Completa
-                </button>
-            </div>
-        </div>
+    
 
         <div class="text-center">
             <a href="/app/purchase-orders/detail/${po.id}/" class="btn btn-primary">
@@ -682,8 +666,8 @@ markAsCompletelyReceived(poId) {
     /**
      * Procesar recepción de items
      */
-    async processItemsReception() {
-        this.showInfo('Función en desarrollo');
+    async processItemsReception(poId) {
+        window.location.href = `/app/purchase-orders/detail/${poId}/`;
     },
 
     /**
