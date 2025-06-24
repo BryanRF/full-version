@@ -1,5 +1,5 @@
 # apps/ecommerce/purchasing/services.py
-from datetime import timezone
+from django.utils import timezone
 from decimal import Decimal
 from django.db import transaction
 from django.core.exceptions import ValidationError

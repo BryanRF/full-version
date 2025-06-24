@@ -11,7 +11,6 @@ from datetime import date, timedelta
 import logging
 from apps.ecommerce.requirements.services import RequirementExcelGenerator
 import pandas as pd
-import openpyxl
 from decimal import Decimal, InvalidOperation
 import logging
 

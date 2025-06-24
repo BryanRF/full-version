@@ -1562,7 +1562,15 @@ const PurchaseOrderDetailActions = {
                 </div>
             `,
             icon: 'success',
-            confirmButtonText: 'Aceptar'
+                    showCancelButton: true,
+        confirmButtonText: 'Aceptar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#ff3e1d',
+        customClass: {
+            confirmButton: 'btn btn-danger me-2',
+            cancelButton: 'btn btn-label-secondary'
+        },
+        buttonsStyling: false
         });
     },
 

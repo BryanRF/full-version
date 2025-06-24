@@ -161,7 +161,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 )
 
             # Obtener datos del request
-            items_data = request.data.get('items', [])
+            items_data = request.data.get('received_items', [])
             update_inventory = request.data.get('update_inventory', True)
             general_notes = request.data.get('general_notes', '')
 
@@ -173,11 +173,14 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 
             # Usar el servicio de recepción
             try:
+                reception_data = {
+                    'received_items': items_data,  # ← Debe ser 'received_items', no 'items'
+                    'general_notes': general_notes,
+                    'update_inventory': update_inventory
+                }
                 summary = PurchaseOrderReceptionService.receive_items(
                     purchase_order=purchase_order,
-                    reception_data=items_data,
-                    update_inventory=update_inventory,
-                    general_notes=general_notes,
+                    reception_data=reception_data,
                     user=request.user
                 )
 
