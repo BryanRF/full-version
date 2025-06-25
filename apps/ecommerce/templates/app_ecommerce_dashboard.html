@@ -6,10 +6,108 @@
 {% block title %}Sistema de Gestión de Productos{% endblock title %}
 
 {% block content %}
-<div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
-  <div class="text-center">
-    <h1 class="display-1 fw-bold">BIENVENIDO</h1>
-    <h2 class="display-4">AL SISTEMA DE GESTIÓN DE PRODUCTOS</h2>
+<div class="d-flex justify-content-center align-items-center min-vh-100 ">
+  <div class="text-center p-5 rounded-4" >
+    <!-- Logo y título -->
+    <div class="mb-5">
+      <div class="position-relative d-inline-block mb-4">
+        <div class="hexagon-bg position-absolute top-0 start-0 w-100 h-100"></div>
+        <i class="ri-box-3-fill ri-5x position-relative text-primary"></i>
+      </div>
+      <h1 class="display-3 fw-bold mb-3 ">BIENVENIDO</h1>
+      <h2 class="display-5 mb-4 text-gradient">SISTEMA DE GESTIÓN DE PRODUCTOS</h2>
+    </div>
+    
+    <!-- Mensaje descriptivo -->
+    <p class="lead mb-5 opacity-75">
+      La plataforma integral para administrar inventario, categorizar productos y optimizar procesos comerciales
+    </p>
+    
+    <!-- Indicadores de sistema -->
+    <div class="row g-4 mb-5">
+      <div class="col-md-4">
+        <div class="card h-100 border-0 bg-dark-blue">
+          <div class="card-body p-4">
+            <div class="indicator-icon mb-3">
+              <i class="ri-database-line ri-3x text-info"></i>
+            </div>
+            <h5 class="card-title ">Inventario</h5>
+            <p class="card-text  mb-0">Control total de existencias</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 border-0 bg-dark-blue">
+          <div class="card-body p-4">
+            <div class="indicator-icon mb-3">
+              <i class="ri-line-chart-line ri-3x text-success"></i>
+            </div>
+            <h5 class="card-title ">Reportes</h5>
+            <p class="card-text  mb-0">Métricas en tiempo real</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 border-0 bg-dark-blue">
+          <div class="card-body p-4">
+            <div class="indicator-icon mb-3">
+              <i class="ri-shield-keyhole-line ri-3x text-warning"></i>
+            </div>
+            <h5 class="card-title ">Seguridad</h5>
+            <p class="card-text  opacity-75 mb-0">Datos completamente protegidos</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    
+    <!-- Información del sistema -->
+    <div class="mt-5 pt-4 border-top border-secondary">
+      <div class="d-flex justify-content-center gap-4">
+        <div class="text-center">
+          <div class="fs-2 fw-bold text-info">24/7</div>
+          <div class=" opacity-75">Disponibilidad</div>
+        </div>
+        <div class="text-center">
+          <div class="fs-2 fw-bold text-success">99.9%</div>
+          <div class=" opacity-75">Uptime</div>
+        </div>
+        <div class="text-center">
+          <div class="fs-2 fw-bold text-warning">SSL</div>
+          <div class=" opacity-75">Protegido</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
+
+<style>
+ 
+  
+  .bg-dark-blue:hover {
+    transform: translateY(-5px);
+  }
+  
+  .text-gradient {
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  
+  .hexagon-bg {
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    opacity: 0.8;
+    transform: scale(1.2);
+    z-index: 0;
+  }
+  
+  .indicator-icon {
+    display: inline-block;
+    padding: 15px;
+    border-radius: 50%;
+  }
+</style>
 {% endblock %}

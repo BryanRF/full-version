@@ -4,16 +4,20 @@
       "menu_header": "Modulos"
     },
     {
+     "icon": "menu-icon tf-icons ri-home-3-line",
+
+
+          "url": "app-ecommerce-dashboard",
+          "name": "Inicio",
+          "slug": "app-ecommerce-dashboard"
+        },
+    {
       "name": "Almacen",
       "icon": "menu-icon tf-icons ri-shopping-bag-3-line",
       "slug": "app-ecommerce",
       "permission": "ecommerce.view_product",
       "submenu": [
-        {
-          "url": "app-ecommerce-dashboard",
-          "name": "Dashboard",
-          "slug": "app-ecommerce-dashboard"
-        },
+        
         {
           "name": "Productos",
           "slug": "app-ecommerce-product",

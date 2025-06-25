@@ -1,4 +1,4 @@
-# auth/services.py
+# auth/services.py - Corregido para evitar conflictos con signals
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
@@ -123,8 +123,8 @@ Equipo de Administración
 
     @staticmethod
     @transaction.atomic
-    def create_user(email, nombre, apellidos, dni, fecha_nacimiento, genero,role=None, created_by=None):
-        """Crear nuevo usuario con perfil"""
+    def create_user(email, nombre, apellidos, dni, fecha_nacimiento, genero, role=None, created_by=None):
+        """Crear nuevo usuario con perfil - MÉTODO CORREGIDO"""
         try:
             # Validar datos
             UserService.validate_user_data(email, dni, nombre, apellidos, fecha_nacimiento, genero)
@@ -133,6 +133,9 @@ Equipo de Administración
             username = UserService.generate_username_from_email(email)
             password = UserService.generate_random_password()
 
+            # IMPORTANTE: Marcar que este usuario será manejado por UserService
+            # para evitar que el signal cree un perfil automáticamente
+            
             # Crear usuario
             user = User.objects.create_user(
                 username=username,
@@ -143,16 +146,32 @@ Equipo de Administración
                 is_active=False  # Inicialmente inactivo hasta activar
             )
 
-            # Crear perfil
-            profile = Profile.objects.create(
+            # Marcar para evitar creación automática de perfil por signal
+            user._skip_profile_creation = True
+
+            # Crear o actualizar perfil manualmente (método seguro)
+            profile, created = Profile.objects.get_or_create(
                 user=user,
-                dni=dni.strip(),
-                fecha_nacimiento=fecha_nacimiento,
-                genero=genero,
-                status='PENDIENTE',
-                role=role ,  # Rol por defecto
-                created_by=created_by
+                defaults={
+                    'email': email,
+                    'dni': dni.strip(),
+                    'fecha_nacimiento': fecha_nacimiento,
+                    'genero': genero,
+                    'status': 'PENDIENTE',
+                    'role': role or Role.ADMINISTRADOR_SISTEMA,
+                    'created_by': created_by
+                }
             )
+
+            # Si ya existía el perfil (aunque no debería pasar), actualizarlo
+            if not created:
+                profile.dni = dni.strip()
+                profile.fecha_nacimiento = fecha_nacimiento
+                profile.genero = genero
+                profile.role = role or Role.ADMINISTRADOR_SISTEMA
+                if created_by:
+                    profile.created_by = created_by
+                profile.save()
 
             # Enviar credenciales por email
             UserService.send_password_email(user, password)
@@ -172,11 +191,11 @@ Equipo de Administración
 
     @staticmethod
     @transaction.atomic
-    def update_user(user, nombre=None, apellidos=None, dni=None, fecha_nacimiento=None, genero=None,role=None, updated_by=None):
+    def update_user(user, nombre=None, apellidos=None, dni=None, fecha_nacimiento=None, genero=None, role=None, updated_by=None):
         """Actualizar datos del usuario"""
         try:
             # Validar DNI único si se está cambiando
-            if dni and dni != user.profile.dni:
+            if dni and hasattr(user, 'profile') and user.profile and dni != user.profile.dni:
                 if Profile.objects.filter(dni=dni).exclude(user=user).exists():
                     raise ValidationError({'dni': ['Este DNI ya está registrado']})
 
@@ -188,8 +207,20 @@ Equipo de Administración
 
             user.save()
 
-            # Actualizar perfil
-            profile = user.profile
+            # Obtener o crear perfil si no existe
+            profile, created = Profile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'email': user.email,
+                    'dni': dni.strip() if dni else '',
+                    'fecha_nacimiento': fecha_nacimiento,
+                    'genero': genero,
+                    'role': role or Role.ADMINISTRADOR_SISTEMA,
+                    'created_by': updated_by
+                }
+            )
+
+            # Actualizar perfil existente
             if dni:
                 profile.dni = dni.strip()
             if fecha_nacimiento:
@@ -198,6 +229,10 @@ Equipo de Administración
                 profile.genero = genero
             if role:
                 profile.role = role
+            
+            # Agregar updated_by
+            if updated_by:
+                profile.updated_by = updated_by
 
             profile.save()
 
@@ -219,7 +254,18 @@ Equipo de Administración
     def change_user_status(user, new_status, changed_by=None):
         """Cambiar estado del usuario"""
         try:
-            old_status = user.profile.status
+            # Obtener o crear perfil si no existe
+            profile, created = Profile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'email': user.email,
+                    'status': 'PENDIENTE',
+                    'role': Role.ADMINISTRADOR_SISTEMA,
+                    'created_by': changed_by
+                }
+            )
+
+            old_status = profile.status
 
             # Validar estado
             valid_statuses = ['PENDIENTE', 'ACTIVO', 'INACTIVO']
@@ -227,8 +273,10 @@ Equipo de Administración
                 raise ValidationError({'status': ['Estado inválido']})
 
             # Actualizar estado del perfil
-            user.profile.status = new_status
-            user.profile.save()
+            profile.status = new_status
+            if changed_by:
+                profile.updated_by = changed_by
+            profile.save()
 
             # Actualizar is_active del usuario
             user.is_active = (new_status == 'ACTIVO')
@@ -256,6 +304,12 @@ Equipo de Administración
             new_password = UserService.generate_random_password()
             user.set_password(new_password)
             user.save()
+
+            # Actualizar updated_by en el perfil
+            if hasattr(user, 'profile') and user.profile:
+                if reset_by:
+                    user.profile.updated_by = reset_by
+                    user.profile.save()
 
             # Enviar por email
             email_sent = UserService.send_password_email(user, new_password)
@@ -442,7 +496,7 @@ Equipo de Administración
             from apps.notification.models import TipoNotificacion
 
             # Solo notificar para roles administrativos o si es el primer login
-            if user.profile.role in [Role.ADMINISTRADOR_SISTEMA, Role.GERENTE_COMPRAS] or user.last_login is None:
+            if hasattr(user, 'profile') and user.profile and user.profile.role in [Role.ADMINISTRADOR_SISTEMA, Role.GERENTE_COMPRAS] or user.last_login is None:
                 mensaje = f"Inicio de sesión: {user.get_full_name() or user.username}"
 
                 datos_adicionales = {
@@ -486,6 +540,7 @@ Equipo de Administración
                     dni=user_data.get('dni'),
                     fecha_nacimiento=user_data.get('fecha_nacimiento'),
                     genero=user_data.get('genero'),
+                    role=user_data.get('role'),
                     created_by=created_by
                 )
                 created_users.append(user)
@@ -517,7 +572,7 @@ Equipo de Administración
 
             data = []
             for user in users:
-                profile = user.profile
+                profile = user.profile if hasattr(user, 'profile') else None
                 data.append({
                     'id': user.id,
                     'username': user.username,
@@ -531,7 +586,9 @@ Equipo de Administración
                     'role': profile.role if profile else '',
                     'fecha_creacion': user.date_joined.isoformat(),
                     'ultimo_login': user.last_login.isoformat() if user.last_login else '',
-                    'activo': user.is_active
+                    'activo': user.is_active,
+                    'created_by': profile.created_by.username if profile and profile.created_by else '',
+                    'updated_by': profile.updated_by.username if profile and profile.updated_by else ''
                 })
 
             return data

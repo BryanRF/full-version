@@ -1,9 +1,10 @@
-# auth/models.py - Actualizado con sistema de roles
+# auth/models.py - Corregido para evitar conflictos con UserService
 from django.db import models
 from django.contrib.auth.models import User, Permission, Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 class Role(models.TextChoices):
     """Opciones de roles disponibles en el sistema"""
@@ -56,6 +57,24 @@ class Profile(models.Model):
         blank=True,
         null=True,
         verbose_name="Género"
+    )
+
+    # Campos de auditoría
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='profiles_created',
+        verbose_name="Creado por"
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='profiles_updated',
+        verbose_name="Actualizado por"
     )
 
     def __str__(self):
@@ -140,11 +159,22 @@ class RolePermissionConfig(models.Model):
         """Establecer permisos del rol"""
         self.group.permissions.set(permissions)
 
-# Signals para automatizar la asignación de grupos según roles
+# SIGNALS CORREGIDOS - Solo para usuarios que NO son creados por UserService
 @receiver(post_save, sender=User)
-def create_profile(sender, instance, created, **kwargs):
-    if created:
-        Profile.objects.create(user=instance, email=instance.email)
+def create_profile_if_needed(sender, instance, created, **kwargs):
+    """Crear perfil solo si no existe y no fue creado por UserService"""
+    if created and not hasattr(instance, 'profile'):
+        # Solo crear si no existe perfil (evita conflictos con UserService)
+        try:
+            Profile.objects.get(user=instance)
+        except Profile.DoesNotExist:
+            # Solo crear el perfil básico si no fue creado por UserService
+            # UserService maneja la creación completa del perfil
+            if not hasattr(instance, '_skip_profile_creation'):
+                Profile.objects.create(
+                    user=instance, 
+                    email=instance.email or f"{instance.username}@example.com"
+                )
 
 @receiver(post_save, sender=Profile)
 def assign_user_to_role_group(sender, instance, **kwargs):
