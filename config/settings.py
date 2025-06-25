@@ -220,14 +220,14 @@ ALLOW_NEGATIVE_STOCK = False
 AUTO_UPDATE_STOCK_ON_SALE = True
 # Email Settings
 # ------------------------------------------------------------------------------
-DOCUMENT_API_TOKEN = "apis-token-15649.jtqZdctDZiDNRiHH9QvwtkDdSVLDeK3f"
+DOCUMENT_API_TOKEN = "apis-token-16339.8AjCShzBOeWBdTDJt9t7zyUDd7vgpwxa"
 DOCUMENT_API_BASE_URL = ( "https://api.apis.net.pe")
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "rfreyrebrayaned@uss.edu.pe"
-EMAIL_HOST_PASSWORD = "ajjvniyyqelwvsvp"
+EMAIL_HOST_USER = "hremaycunaduber@uss.edu.pe"
+EMAIL_HOST_PASSWORD = "njjriuivoiyvjwhs"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
